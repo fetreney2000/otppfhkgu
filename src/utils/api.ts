@@ -26,12 +26,17 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers,
-      credentials: 'include',
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers,
+        credentials: 'include',
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (err) {
+      throw new Error('Tidak dapat menghubungi pelayan. Pastikan pelayan backend berjalan.');
+    }
 
     if (response.status === 401) {
       this.setToken(null);
@@ -39,11 +44,17 @@ class ApiClient {
       throw new Error('Sesi tamat tempoh');
     }
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || 'Ralat pelayan');
+    const text = await response.text();
+    let data: Record<string, unknown>;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error(`Pelayan mengembalikan respons tidak sah (${response.status}). Pastikan pelayan backend berjalan.`);
     }
-    return data;
+    if (!response.ok) {
+      throw new Error((data.error as string) || 'Ralat pelayan');
+    }
+    return data as unknown as T;
   }
 
   get<T>(path: string) { return this.request<T>('GET', path); }
