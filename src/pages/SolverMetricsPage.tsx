@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Card, Title, Stack, Table, Badge, Text, Group, Button, TextInput, ScrollArea, Loader, Center } from '@mantine/core';
-import { DatePickerInput } from '@mantine/dates';
+import { Card, Title, Stack, Table, Badge, Text, Group, Button, ScrollArea, Loader, Center } from '@mantine/core';
+import { MonthPickerInput } from '@mantine/dates';
 import { useAppStore } from '../stores/appStore';
 import { BarChart } from '@mantine/charts';
 import dayjs from 'dayjs';
@@ -32,12 +32,11 @@ export function SolverMetricsPage() {
 
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Group mb="md">
-          <DatePickerInput
+          <MonthPickerInput
             value={monthFrom ? new Date(monthFrom + '-01') : null}
-            onChange={(val) => {
-              if (val) {
-                const d = val instanceof Date ? val : new Date(val);
-                setMonthFrom(d.toISOString().substring(0, 7));
+            onChange={(val: any) => {
+              if (val && val instanceof Date) {
+                setMonthFrom(val.toISOString().substring(0, 7));
               }
             }}
             label="Dari"
@@ -45,12 +44,11 @@ export function SolverMetricsPage() {
             valueFormat="MMM YYYY"
             clearable={false}
           />
-          <DatePickerInput
+          <MonthPickerInput
             value={monthTo ? new Date(monthTo + '-01') : null}
-            onChange={(val) => {
-              if (val) {
-                const d = val instanceof Date ? val : new Date(val);
-                setMonthTo(d.toISOString().substring(0, 7));
+            onChange={(val: any) => {
+              if (val && val instanceof Date) {
+                setMonthTo(val.toISOString().substring(0, 7));
               }
             }}
             label="Hingga"

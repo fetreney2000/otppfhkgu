@@ -1,4 +1,5 @@
-import { AppShell, Burger, Group, Title, Text, Badge, Button, NavLink, ScrollArea, Divider, ActionIcon, Tooltip, Menu, Avatar, UnstyledButton, Select, Box } from '@mantine/core';
+import { AppShell, Burger, Group, Title, Text, Badge, Button, NavLink, ScrollArea, Divider, ActionIcon, Tooltip, Menu, Avatar, UnstyledButton, Box } from '@mantine/core';
+import { MonthPickerInput } from '@mantine/dates';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
@@ -86,42 +87,20 @@ export function AppLayout() {
                 </ActionIcon>
               </Tooltip>
             )}
-            <Group gap={0}>
-              <Select
-                data={[
-                  { value: '01', label: 'Jan' }, { value: '02', label: 'Feb' },
-                  { value: '03', label: 'Mac' }, { value: '04', label: 'Apr' },
-                  { value: '05', label: 'Mei' }, { value: '06', label: 'Jun' },
-                  { value: '07', label: 'Jul' }, { value: '08', label: 'Ogo' },
-                  { value: '09', label: 'Sep' }, { value: '10', label: 'Okt' },
-                  { value: '11', label: 'Nov' }, { value: '12', label: 'Dis' },
-                ]}
-                value={currentMonth ? currentMonth.substring(5, 7) : '01'}
-                onChange={(val) => {
-                  if (val) {
-                    const year = currentMonth ? currentMonth.substring(0, 4) : String(new Date().getFullYear());
-                    setCurrentMonth(`${year}-${val}`);
-                  }
-                }}
-                size="xs"
-                styles={{ input: { width: 70, borderTopRightRadius: 0, borderBottomRightRadius: 0 } }}
-              />
-              <Select
-                data={Array.from({ length: 11 }, (_, i) => ({
-                  value: String(new Date().getFullYear() - 5 + i),
-                  label: String(new Date().getFullYear() - 5 + i),
-                }))}
-                value={currentMonth ? currentMonth.substring(0, 4) : String(new Date().getFullYear())}
-                onChange={(val) => {
-                  if (val) {
-                    const month = currentMonth ? currentMonth.substring(5, 7) : '01';
-                    setCurrentMonth(`${val}-${month}`);
-                  }
-                }}
-                size="xs"
-                styles={{ input: { width: 65, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 0 } }}
-              />
-            </Group>
+            <MonthPickerInput
+              value={currentMonth ? new Date(currentMonth + '-01') : null}
+              onChange={(val: any) => {
+                if (val && val instanceof Date) {
+                  const iso = val.toISOString().substring(0, 7);
+                  setCurrentMonth(iso);
+                }
+              }}
+              placeholder="Pilih Bulan"
+              size="xs"
+              valueFormat="MMM YYYY"
+              clearable={false}
+              styles={{ input: { width: 160 } }}
+            />
             <Menu shadow="md" width={200}>
               <Menu.Target>
                 <UnstyledButton>
