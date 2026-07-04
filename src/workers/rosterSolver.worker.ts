@@ -583,10 +583,13 @@ async function solve(data: SolverInputData) {
   unavailability.forEach(u => unavailSet.add(`${u.date}_${u.employeeId}`));
 
   const preMap = new Map<string, Map<string, string>>();
-  preselections.forEach(p => {
-    if (!preMap.has(p.date)) preMap.set(p.date, new Map());
-    preMap.get(p.date)!.set(p.slotType, p.employeeId);
-  });
+  if (Array.isArray(preselections)) {
+    preselections.forEach(p => {
+      if (!p || !p.date || !p.slotType || !p.employeeId) return;
+      if (!preMap.has(p.date)) preMap.set(p.date, new Map());
+      preMap.get(p.date)!.set(p.slotType, p.employeeId);
+    });
+  }
 
   const empMap = new Map(employees.map(e => [e.employeeId, e]));
   const activeEmployees = employees.filter(e => e.active);
@@ -613,15 +616,22 @@ async function solve(data: SolverInputData) {
     postAEBlock: {}, unavailSet,
   };
 
-  // Apply preselections
-  for (const p of preselections) {
-    const emp = empMap.get(p.employeeId);
-    if (!emp) continue;
-    const dayType = classifyDay(p.date, holidayDates);
-    const aeHours = p.slotType === 'AE' ? calcAEHours(p.date, dayType, allHolidays) : 0;
-    const hours = p.slotType === 'AE' ? aeHours : getSlotHours(p.slotType);
-    const slot: SolverSlot = { slotType: p.slotType, department: getSlotDept(p.slotType, aeMap.get(p.date)), role: getSlotRole(p.slotType) as EmployeeRole, hours, date: p.date, dayType };
-    applyAssignment(slot, emp, baseState, holidayDates, allHolidays);
+  // Apply preselections (with null safety)
+  if (Array.isArray(preselections)) {
+    for (const p of preselections) {
+      if (!p || !p.employeeId || !p.date || !p.slotType) continue;
+      const emp = empMap.get(p.employeeId);
+      if (!emp) continue;
+      try {
+        const dayType = classifyDay(p.date, holidayDates);
+        const aeHours = p.slotType === 'AE' ? calcAEHours(p.date, dayType, allHolidays) : 0;
+        const hours = p.slotType === 'AE' ? aeHours : getSlotHours(p.slotType);
+        const slot: SolverSlot = { slotType: p.slotType, department: getSlotDept(p.slotType, aeMap.get(p.date)), role: getSlotRole(p.slotType) as EmployeeRole, hours, date: p.date, dayType };
+        applyAssignment(slot, emp, baseState, holidayDates, allHolidays);
+      } catch (e) {
+        console.error('Preselection error:', p, e);
+      }
+    }
   }
 
   let bestAssignments: SolverAssignment[] = [...baseState.assignments];
