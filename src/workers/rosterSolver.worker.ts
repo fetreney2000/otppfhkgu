@@ -118,9 +118,9 @@ function getSlotsForDay(dateStr: string, dayType: DayType, aeMap: Map<string, st
 
   if (aeDept) {
     const aeHours = calcAEHours(dateStr, dayType, allHolidays);
-    if (aeHours > 0) {
-      slots.push({ slotType: 'AE', department: aeDept, role: 'PPF', hours: aeHours, date: dateStr, dayType });
-    }
+    // Include ALL AE slots - 0-hour slots (Mon-Thu) are informational markers
+    // They appear in roster output but are skipped during assignment
+    slots.push({ slotType: 'AE', department: aeDept, role: 'PPF', hours: aeHours, date: dateStr, dayType });
   }
 
   if (dayType === 'weekday') {
@@ -675,6 +675,18 @@ async function solve(data: SolverInputData) {
 
       for (const slot of orderedSlots) {
         if (cancelled) break;
+
+        // Skip 0-hour AE slots (Mon-Thu informational markers)
+        if (slot.slotType === 'AE' && slot.hours === 0) {
+          // Add as informational assignment without employee
+          s.assignments.push({
+            date: slot.date, day: getDayName(slot.date), slotType: slot.slotType,
+            employeeId: '', employeeName: slot.department === 'IPP' ? 'IPP-AE' : 'OPD-AE',
+            department: slot.department || '', role: 'PPF', hours: 0,
+          });
+          continue;
+        }
+
         steps++;
 
         let candidates = activeEmployees.filter(e => isEligible(e, slot, s, holidayDates, allHolidays, config));
