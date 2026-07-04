@@ -342,14 +342,40 @@ function isEligibleRelaxed(emp: Employee, slot: SolverSlot, state: SolverState, 
 }
 
 // ============================================
-// CANDIDATE RANKING (6-tier priority)
+// CANDIDATE RANKING (fairness-first priority)
 // ============================================
 function rankCandidates(candidates: Employee[], slot: SolverSlot, state: SolverState, allHolidays: Set<string>): Employee[] {
+  // Compute role-level stats for fairness
+  const roleHoursMap: Record<string, number[]> = {};
+  for (const emp of candidates) {
+    const rh = emp.role;
+    if (!roleHoursMap[rh]) roleHoursMap[rh] = [];
+    roleHoursMap[rh].push(state.hoursUsed[emp.employeeId] || 0);
+  }
+  const roleAverages: Record<string, number> = {};
+  for (const [role, hours] of Object.entries(roleHoursMap)) {
+    roleAverages[role] = hours.length > 0 ? hours.reduce((a, b) => a + b, 0) / hours.length : 0;
+  }
+
   return [...candidates].sort((a, b) => {
     const aHours = state.hoursUsed[a.employeeId] || 0;
     const bHours = state.hoursUsed[b.employeeId] || 0;
     const aMax = a.maxHoursPerMonth || 40;
     const bMax = b.maxHoursPerMonth || 40;
+
+    // TIER 0 (DOMINANT): FAIRNESS WITHIN ROLE — same role = same hours
+    // Employees with hours BELOW role average get highest priority
+    const aRoleAvg = roleAverages[a.role] || 0;
+    const bRoleAvg = roleAverages[b.role] || 0;
+    const aDeficit = aRoleAvg - aHours; // Positive = below average (needs more)
+    const bDeficit = bRoleAvg - bHours;
+    if (Math.abs(aDeficit - bDeficit) > 0.5) {
+      // Higher deficit = should work more = higher priority
+      // Use a strong tiebreaker: difference > 0.5 hours
+      return bDeficit - aDeficit;
+    }
+    // If deficit is very similar, use remaining capacity as secondary
+    if ((aMax - aHours) !== (bMax - bHours)) return (bMax - bHours) - (aMax - aHours);
 
     // TIER 1: Monthly minimum need
     const aStats = state.monthlyRuleStats[a.employeeId] || emptyMonthlyRuleStats();
@@ -375,10 +401,7 @@ function rankCandidates(candidates: Employee[], slot: SolverSlot, state: SolverS
       if ((a.annualPH || 0) !== (b.annualPH || 0)) return (a.annualPH || 0) - (b.annualPH || 0);
     }
 
-    // TIER 3: Remaining hours (higher remaining = higher priority)
-    if ((aMax - aHours) !== (bMax - bHours)) return (bMax - bHours) - (aMax - aHours);
-
-    // TIER 4: Employee ID lexical
+    // TIER 3: Employee ID lexical
     return a.employeeId.localeCompare(b.employeeId);
   });
 }
