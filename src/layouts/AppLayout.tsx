@@ -1,4 +1,4 @@
-import { AppShell, Burger, Group, Title, Text, Badge, Button, NavLink, ScrollArea, Divider, ActionIcon, Tooltip, Menu, Avatar, UnstyledButton, Select } from '@mantine/core';
+import { AppShell, Burger, Group, Title, Text, Badge, Button, NavLink, ScrollArea, Divider, ActionIcon, Tooltip, Menu, Avatar, UnstyledButton, Select, Box } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
@@ -129,10 +129,10 @@ export function AppLayout() {
                     <Avatar color={roleColor} radius="xl" size={32}>
                       {(name || 'U').charAt(0).toUpperCase()}
                     </Avatar>
-                    <div style={{ flex: 1 }}>
+                    <Box style={{ flex: 1 }}>
                       <Text size="sm" fw={500}>{name}</Text>
                       <Badge color={roleColor} size="xs">{roleLabel}</Badge>
-                    </div>
+                    </Box>
                     <IconChevronDown size={14} />
                   </Group>
                 </UnstyledButton>

@@ -35,7 +35,7 @@ export function LoginPage() {
             <Text size="sm" c="dimmed">Sistem Penjanaan Jadual OT Kesihatan</Text>
           </Stack>
 
-          <form onSubmit={handleSubmit}>
+          <Box component="form" onSubmit={handleSubmit}>
             <Stack gap="md">
               {error && (
                 <Alert icon={<IconAlertCircle size={16} />} color="red" onClose={clearError} withCloseButton>
@@ -78,7 +78,7 @@ export function LoginPage() {
                 Masukkan nama dan kata laluan anda untuk log masuk
               </Text>
             </Stack>
-          </form>
+          </Box>
         </Card>
       </Box>
     </Center>

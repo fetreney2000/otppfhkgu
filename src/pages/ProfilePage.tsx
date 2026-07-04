@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, Title, Stack, TextInput, Select, NumberInput, Button, Group, Badge, Text, Avatar } from '@mantine/core';
+import { Card, Title, Stack, TextInput, Select, NumberInput, Button, Group, Badge, Text, Avatar, Box } from '@mantine/core';
 import { useAppStore } from '../stores/appStore';
 import { useAuthStore } from '../stores/authStore';
 import { notifications } from '@mantine/notifications';
@@ -52,10 +52,10 @@ export function ProfilePage() {
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Group mb="lg">
           <Avatar size={64} color={roleColor} radius="xl">{(name || 'U').charAt(0).toUpperCase()}</Avatar>
-          <div>
+          <Box>
             <Title order={3}>{name}</Title>
             <Badge color={roleColor} size="lg">{role === 'superadmin' ? 'Super Admin' : role === 'admin' ? 'Admin' : 'Kakitangan'}</Badge>
-          </div>
+          </Box>
         </Group>
 
         {profile && (
@@ -74,14 +74,14 @@ export function ProfilePage() {
             </Group>
             <Group grow>
               <TextInput label="Jam Max/Bulan" value={String(profile.maxHoursPerMonth)} disabled />
-              <div>
+              <Box>
                 <Text size="xs" c="dimmed" mb={4}>Peruntukan Tahunan</Text>
                 <Group gap="xs">
                   <Badge color="red" variant="light">AE: {profile.annualAE}</Badge>
                   <Badge color="pink" variant="light">PH: {profile.annualPH}</Badge>
                   <Badge color="green" variant="light">AE Bergaji: {profile.annualPaidAE}</Badge>
                 </Group>
-              </div>
+              </Box>
             </Group>
             <Button onClick={handleSave} loading={saving} style={{ alignSelf: 'flex-start' }}>Kemaskini Profil</Button>
           </Stack>
