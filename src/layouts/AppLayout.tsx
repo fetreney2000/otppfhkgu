@@ -1,4 +1,5 @@
 import { AppShell, Burger, Group, Title, Text, Badge, Button, NavLink, ScrollArea, Divider, ActionIcon, Tooltip, Menu, Avatar, UnstyledButton, Flex } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
@@ -48,8 +49,11 @@ export function AppLayout() {
   const roleLabel = role === 'superadmin' ? 'Super Admin' : role === 'admin' ? 'Admin' : 'Kakitangan';
   const roleColor = role === 'superadmin' ? 'red' : role === 'admin' ? 'blue' : 'green';
 
-  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCurrentMonth(e.target.value);
+  const handleMonthChange = (value: string | null) => {
+    if (value) {
+      const monthStr = value.substring(0, 7); // "YYYY-MM"
+      setCurrentMonth(monthStr);
+    }
   };
 
   const visibleAdminItems = adminNavItems.filter(item => role && item.roles.includes(role));
@@ -90,16 +94,20 @@ export function AppLayout() {
                 </ActionIcon>
               </Tooltip>
             )}
-            <input
-              type="month"
-              value={currentMonth}
-              onChange={handleMonthChange}
-              style={{
-                padding: '6px 10px',
-                border: '1px solid #ced4da',
-                borderRadius: '4px',
-                fontSize: '14px',
+            <DatePickerInput
+              value={currentMonth ? new Date(currentMonth + '-01') : null}
+              onChange={(val) => {
+                if (val) {
+                  const d = val instanceof Date ? val : new Date(val);
+                  const iso = d.toISOString().substring(0, 7);
+                  setCurrentMonth(iso);
+                }
               }}
+              placeholder="Pilih Bulan"
+              size="sm"
+              valueFormat="MMM YYYY"
+              clearable={false}
+              styles={{ input: { width: 160 } }}
             />
             <Menu shadow="md" width={200}>
               <Menu.Target>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, Title, Stack, Table, Badge, Text, Group, Button, TextInput, ScrollArea, Loader, Center } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import { useAppStore } from '../stores/appStore';
 import { BarChart } from '@mantine/charts';
 import dayjs from 'dayjs';
@@ -31,8 +32,32 @@ export function SolverMetricsPage() {
 
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Group mb="md">
-          <TextInput type="month" label="Dari" value={monthFrom} onChange={e => setMonthFrom(e.currentTarget.value)} />
-          <TextInput type="month" label="Hingga" value={monthTo} onChange={e => setMonthTo(e.currentTarget.value)} />
+          <DatePickerInput
+            value={monthFrom ? new Date(monthFrom + '-01') : null}
+            onChange={(val) => {
+              if (val) {
+                const d = val instanceof Date ? val : new Date(val);
+                setMonthFrom(d.toISOString().substring(0, 7));
+              }
+            }}
+            label="Dari"
+            size="sm"
+            valueFormat="MMM YYYY"
+            clearable={false}
+          />
+          <DatePickerInput
+            value={monthTo ? new Date(monthTo + '-01') : null}
+            onChange={(val) => {
+              if (val) {
+                const d = val instanceof Date ? val : new Date(val);
+                setMonthTo(d.toISOString().substring(0, 7));
+              }
+            }}
+            label="Hingga"
+            size="sm"
+            valueFormat="MMM YYYY"
+            clearable={false}
+          />
           <Button onClick={handleLoad} loading={loading} style={{ marginTop: 24 }}>Muat</Button>
         </Group>
       </Card>
