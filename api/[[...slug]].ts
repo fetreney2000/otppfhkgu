@@ -614,14 +614,12 @@ app.get('/roster/payment', authenticate, async (req, res) => {
         paymentMap[row.employeeId] = { employeeId: row.employeeId, name: row.employeeName, department: row.department, role: row.role, salary: emp.salary, hourlyRate, totalOTPay: 0, exceedsOneThird: false, slotDetails: [] };
       }
       const p = paymentMap[row.employeeId];
+      const totalMult = getSlotPaymentMultiplier(row.slotType, row.date, holidaySet);
+      const payAmount = Math.round(p.hourlyRate * totalMult * 100) / 100;
       const dow = new Date(row.date + 'T00:00:00').getDay();
       const isHol = holidaySet.has(row.date);
-      const isWe = (dow === 0 || dow === 6) && !isHol;
-      let mult = 1.125;
-      if (isHol) mult = 1.75; else if (isWe) mult = 1.25;
-      const payAmount = Math.round(p.hourlyRate * mult * 100) / 100;
       const dayType = isHol ? 'Cuti Umum' : dow === 0 ? 'Ahad' : dow === 6 ? 'Sabtu' : 'Hari Bekerja';
-      p.slotDetails.push({ date: row.date, slotType: row.slotType, hours: row.hours, multiplier: mult, payAmount, dayType });
+      p.slotDetails.push({ date: row.date, slotType: row.slotType, hours: row.hours, multiplier: totalMult, payAmount, dayType });
       p.totalOTPay += payAmount;
     }
     for (const p of Object.values(paymentMap)) { p.totalOTPay = Math.round(p.totalOTPay * 100) / 100; p.exceedsOneThird = p.totalOTPay > (p.salary / 3); }
@@ -805,6 +803,65 @@ app.get('/solver-metrics', authenticate, requireRole('superadmin'), async (req, 
     return res.json({ success: true, data: metrics });
   } catch { return res.status(500).json({ success: false, error: 'Ralat pelayan' }); }
 });
+
+// ---- PAYMENT CALCULATION HELPERS ----
+function addDaysDate(dateStr: string, n: number): Date {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+function getSlotPaymentMultiplier(slotType: string, dateStr: string, holidaySet: Set<string>): number {
+  const dow = new Date(dateStr + 'T00:00:00').getDay();
+  const isHoliday = holidaySet.has(dateStr);
+  const isWeekday = dow >= 1 && dow <= 5 && !isHoliday;
+  const isSaturday = dow === 6 && !isHoliday;
+  const isSunday = dow === 0 && !isHoliday;
+
+  const nextDate = addDaysDate(dateStr, 1);
+  const nextDow = nextDate.getDay();
+  const nextStr = nextDate.toISOString().split('T')[0];
+  const nextIsHoliday = holidaySet.has(nextStr);
+  const nextIsWeekend = nextDow === 0 || nextDow === 6;
+  const nextIsFriSatSunHol = nextDow === 5 || nextDow === 6 || nextDow === 0 || nextIsHoliday;
+
+  // AE slots - complex calculation based on day type AND next day type
+  if (slotType === 'AE') {
+    if (isWeekday && dow >= 1 && dow <= 3) return 0; // Mon-Thu no AE
+    if (isWeekday && dow === 4) { // Friday
+      // Friday AE: 9h
+      return (1.25 * 2) + (1.5 * 5) + (1.25 * 2); // 12.5
+    }
+    if (isWeekday && dow === 5) { // Saturday
+      if (nextIsHoliday) return (1.5 * 2) + (2 * 5) + (1.75 * 2); // 16.5
+      if (nextDow === 0) return (1.5 * 7) + (1.25 * 2); // 13.0
+      return 1.5 * 2; // 3.0 (next weekday, only 2h)
+    }
+    if (isSunday) {
+      if (nextIsHoliday) return (2 * 7) + (1.75 * 2); // 17.5
+      return 2 * 2; // 4.0 (next weekday, only 2h)
+    }
+    if (isHoliday) {
+      if (nextIsFriSatSunHol) return (2 * 2) + (1.5 * 5) + (1.25 * 2); // 14.0
+      if (nextIsHoliday) return (2 * 7) + (1.75 * 2); // 17.5
+      return 2 * 2; // 4.0 (next weekday)
+    }
+    return 1.0;
+  }
+
+  // PP slots (6h)
+  if (slotType === 'PP_PPF' || slotType === 'PP_PRA_1' || slotType === 'PP_PRA_2') {
+    if (isHoliday) return 1.75 * 6; // 10.5
+    if (isSaturday || isSunday) return 1.25 * 6; // 7.5
+    return 1.125 * 6; // 6.75
+  }
+
+  // IPP/OPD slots (4h weekday, 7h weekend/holiday)
+  const hours = isWeekday ? 4 : 7;
+  if (isHoliday) return 1.75 * hours;
+  if (isSaturday || isSunday) return 1.25 * hours;
+  return 1.125 * hours;
+}
 
 // ---- HEALTH ----
 app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
