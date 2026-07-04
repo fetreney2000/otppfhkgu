@@ -237,6 +237,16 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
+// Strip /api prefix for Vercel serverless routing
+app.use((req, _res, next) => {
+  if (req.url.startsWith('/api/')) {
+    req.url = req.url.substring(4);
+  } else if (req.url === '/api') {
+    req.url = '/';
+  }
+  next();
+});
+
 // Ensure DB connection for all routes
 app.use(async (_req, _res, next) => {
   await connectDB();
