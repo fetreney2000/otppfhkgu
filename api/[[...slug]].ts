@@ -842,9 +842,10 @@ function getSlotPaymentMultiplier(slotType: string, dateStr: string, holidaySet:
       return 2 * 2; // 4.0 (next weekday, only 2h)
     }
     if (isHoliday) {
-      if (nextIsFriSatSunHol) return (2 * 2) + (1.5 * 5) + (1.25 * 2); // 14.0
+      // Only Sat/Sun/Holiday next day gives 9h; Friday next day gives 2h
+      if (nextDow === 6 || nextDow === 0 || nextIsHoliday) return (2 * 2) + (1.5 * 5) + (1.25 * 2); // 14.0 (next Sat/Sun/Hol)
       if (nextIsHoliday) return (2 * 7) + (1.75 * 2); // 17.5
-      return 2 * 2; // 4.0 (next weekday)
+      return 2 * 2; // 4.0 (next weekday including Friday)
     }
     return 1.0;
   }

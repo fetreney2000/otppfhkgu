@@ -94,8 +94,9 @@ function calcAEHours(dateStr: string, dayType: DayType, allHolidays: Set<string>
   const nextDow = getDOW(nextDay);
   const nextIsHoliday = allHolidays.has(nextDay);
   if (dayType === 'sunday') return nextIsHoliday ? 9 : 2;
-  const nextIsFriSatSunHol = (nextDow === 5 || nextDow === 6 || nextDow === 0 || nextIsHoliday);
-  return nextIsFriSatSunHol ? 9 : 2;
+  // Holiday — only Sat/Sun/Holiday next day gives 9h; Friday next day gives 2h
+  const nextIsSatSunHol = (nextDow === 6 || nextDow === 0 || nextIsHoliday);
+  return nextIsSatSunHol ? 9 : 2;
 }
 
 // ============================================
