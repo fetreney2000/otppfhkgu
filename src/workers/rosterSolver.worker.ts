@@ -676,17 +676,6 @@ async function solve(data: SolverInputData) {
       for (const slot of orderedSlots) {
         if (cancelled) break;
 
-        // Skip 0-hour AE slots (Mon-Thu informational markers)
-        if (slot.slotType === 'AE' && slot.hours === 0) {
-          // Add as informational assignment without employee
-          s.assignments.push({
-            date: slot.date, day: getDayName(slot.date), slotType: slot.slotType,
-            employeeId: '', employeeName: slot.department === 'IPP' ? 'IPP-AE' : 'OPD-AE',
-            department: slot.department || '', role: 'PPF', hours: 0,
-          });
-          continue;
-        }
-
         steps++;
 
         let candidates = activeEmployees.filter(e => isEligible(e, slot, s, holidayDates, allHolidays, config));
