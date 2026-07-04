@@ -250,7 +250,7 @@ function isEligible(
   }
 
   // CHECK 10: MONTHLY DEPT DISTRIBUTION
-  const stats = state.monthlyRuleStats[empId];
+  const stats = state.monthlyRuleStats[empId] || emptyMonthlyRuleStats();
   if (emp.role === 'PPF' && slot.dayType === 'weekday' && slot.slotType.startsWith('OPD_')) {
     if (emp.department === 'IPP' && stats.ippWeekdayOpd >= parseInt(config.RULE_MAX_IPP_WEEKDAY_OPD || '4')) {
       return { eligible: false, reason: 'Had OPD weekday IPP (4)' };
@@ -358,7 +358,7 @@ function evaluateObjective(state: SolverState, employees: Employee[], allHoliday
 
   for (const emp of employees) {
     if (!emp.active) continue;
-    const stats = state.monthlyRuleStats[emp.employeeId];
+    const stats = state.monthlyRuleStats[emp.employeeId] || emptyMonthlyRuleStats();
     const maxHours = emp.maxHoursPerMonth || 40;
     const usedHours = state.hoursUsed[emp.employeeId] || 0;
     assignedHours += usedHours;
