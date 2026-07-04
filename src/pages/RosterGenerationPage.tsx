@@ -30,7 +30,16 @@ export function RosterGenerationPage() {
       }
 
       // 2. Spawn web worker
-      const worker = new Worker(new URL('../workers/rosterSolver.worker.ts', import.meta.url), { type: 'module' });
+      let worker: Worker;
+      try {
+        worker = new Worker(new URL('../workers/rosterSolver.worker.ts', import.meta.url), { type: 'module' });
+      } catch (workerErr) {
+        console.error('Failed to create worker:', workerErr);
+        notifications.show({ title: 'Ralat', message: 'Gagal mencipta Web Worker solver', color: 'red' });
+        setIsRunning(false);
+        setProgressModalOpen(false);
+        return;
+      }
       workerRef.current = worker;
 
       worker.onmessage = async (e: MessageEvent<SolverProgress | SolverResult>) => {

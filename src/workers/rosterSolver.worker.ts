@@ -19,7 +19,33 @@ self.onmessage = (e: MessageEvent) => {
   }
   if (e.data.type === 'start') {
     cancelled = false;
-    solve(e.data.data as SolverInputData);
+    try {
+      solve(e.data.data as SolverInputData).catch((err) => {
+        console.error('Solver async error:', err);
+        postResult({
+          type: 'result',
+          success: false,
+          warnings: [`Ralat solver: ${err.message || err}`],
+          unfilledCount: 0,
+          assignments: [],
+          elapsedSeconds: 0,
+          solverMode: 'Error',
+          objective: null as any,
+        });
+      });
+    } catch (err: any) {
+      console.error('Solver sync error:', err);
+      postResult({
+        type: 'result',
+        success: false,
+        warnings: [`Ralat solver: ${err.message || err}`],
+        unfilledCount: 0,
+        assignments: [],
+        elapsedSeconds: 0,
+        solverMode: 'Error',
+        objective: null as any,
+      });
+    }
   }
 };
 

@@ -738,7 +738,7 @@ app.get('/workspace', authenticate, async (req: AuthReq, res) => {
 app.get('/profile', authenticate, async (req: AuthReq, res) => {
   try {
     const employee = await Employee.findOne({ name: req.session?.name, active: true }).select('-password');
-    if (!employee) return res.status(404).json({ success: false, error: 'Profil tidak dijumpai' });
+    if (!employee) return res.json({ success: true, data: null });
     return res.json({ success: true, data: employee });
   } catch { return res.status(500).json({ success: false, error: 'Ralat pelayan' }); }
 });
