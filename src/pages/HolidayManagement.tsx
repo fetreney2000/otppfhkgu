@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, TextInput, Button, Title, Group, Stack, ActionIcon, Text, Badge } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import { useAppStore } from '../stores/appStore';
 import { getDisplayMonth, formatDate, getDayName } from '../utils/dates';
 import { notifications } from '@mantine/notifications';
@@ -34,7 +35,21 @@ export function HolidayManagement() {
       <Title order={2}>Cuti Umum — {getDisplayMonth(currentMonth)}</Title>
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Group grow mb="md">
-          <TextInput type="date" label="Tarikh" value={date} onChange={e => setDate(e.currentTarget.value)} />
+          <DatePickerInput
+            value={date ? new Date(date) : null}
+            onChange={(val) => {
+              if (val) {
+                const d = val instanceof Date ? val : new Date(val);
+                setDate(d.toISOString().split('T')[0]);
+              } else {
+                setDate('');
+              }
+            }}
+            placeholder="Pilih Tarikh"
+            valueFormat="DD-MM-YYYY"
+            clearable
+            size="sm"
+          />
           <TextInput label="Nama Cuti" value={name} onChange={e => setName(e.currentTarget.value)} placeholder="cth. Hari Merdeka" />
           <Button leftSection={<IconPlus size={16} />} onClick={handleAdd} style={{ marginTop: 24 }}>Tambah</Button>
         </Group>

@@ -108,6 +108,7 @@ export function AppLayout() {
               valueFormat="MMM YYYY"
               clearable={false}
               styles={{ input: { width: 160 } }}
+              level="month"
             />
             <Menu shadow="md" width={200}>
               <Menu.Target>

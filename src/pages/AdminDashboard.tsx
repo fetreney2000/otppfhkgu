@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { SimpleGrid, Card, Text, Title, Group, Badge, Button, Stack, Loader, Center, Timeline, ActionIcon, Modal, Radio, Table, Alert, ScrollArea } from '@mantine/core';
+import { SimpleGrid, Card, Text, TextInput, Title, Group, Badge, Button, Stack, Loader, Center, Timeline, ActionIcon, Modal, Radio, Table, Alert, ScrollArea } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import { useAppStore } from '../stores/appStore';
 import { getDisplayMonth, getCalendarDays, getDayName, getDayNameShort, formatDate } from '../utils/dates';
 import { notifications } from '@mantine/notifications';
@@ -173,20 +174,26 @@ export function AdminDashboard() {
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Title order={4} mb="md">Pengurusan Cuti Umum</Title>
         <Group mb="md" grow>
-          <input
-            type="date"
-            value={holidayDate}
-            onChange={(e) => setHolidayDate(e.target.value)}
-            style={{ padding: '8px', border: '1px solid #ced4da', borderRadius: '4px' }}
-            title="Tarikh Cuti"
+          <DatePickerInput
+            value={holidayDate ? new Date(holidayDate) : null}
+            onChange={(val) => {
+              if (val) {
+                const d = val instanceof Date ? val : new Date(val);
+                setHolidayDate(d.toISOString().split('T')[0]);
+              } else {
+                setHolidayDate('');
+              }
+            }}
+            placeholder="Tarikh Cuti"
+            size="sm"
+            valueFormat="DD-MM-YYYY"
+            clearable
           />
-          <input
-            type="text"
+          <TextInput
             value={holidayName}
-            onChange={(e) => setHolidayName(e.target.value)}
+            onChange={(e) => setHolidayName(e.currentTarget.value)}
             placeholder="Nama Cuti Umum"
-            style={{ padding: '8px', border: '1px solid #ced4da', borderRadius: '4px' }}
-            title="Nama Cuti"
+            size="sm"
           />
           <Button onClick={handleAddHoliday}>Tambah</Button>
         </Group>
