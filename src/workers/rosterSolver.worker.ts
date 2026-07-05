@@ -427,7 +427,7 @@ function rankCandidates(candidates: Employee[], slot: SolverSlot, state: SolverS
 // ============================================
 // OBJECTIVE FUNCTION (exact spec)
 // ============================================
-function evaluateObjective(state: SolverState, employees: Employee[], allHolidays: Set<string>, config: Record<string, string>): SolverObjective {
+function evaluateObjective(state: SolverState, employees: Employee[], allHolidays: Set<string>, config: Record<string, string>, holidayDates: Set<string>): SolverObjective {
   let hardPenalty = 0, softPenalty = 0, assignedHours = 0, exceedOneThirdCount = 0;
   const utilizations: number[] = [];
   const roleHoursMap: Record<string, number[]> = {};
@@ -493,12 +493,39 @@ function evaluateObjective(state: SolverState, employees: Employee[], allHoliday
       aeByDateEmp.get(key)!.add(a.employeeId);
     }
   }
+  // Build lookup: date+empId -> slotType for all non-marker assignments
+  const assignByDateEmp = new Map<string, string>();
+  for (const a of state.assignments) {
+    if (a.slotType === 'POST-AE' || a.slotType === 'PREV_MONTH_POST_AE') continue;
+    assignByDateEmp.set(`${a.date}_${a.employeeId}`, a.slotType);
+  }
+
   for (const a of state.assignments) {
     if (a.slotType === 'POST-AE' || a.slotType === 'PREV_MONTH_POST_AE') continue;
     // CHECK 5 violation: employee did AE yesterday, still assigned today
     const prevDate = addDays(a.date, -1);
     if (aeByDateEmp.get(prevDate)?.has(a.employeeId)) {
       hardPenalty += VIOLETION_PENALTY;
+    }
+
+    // CHECK 6 violation: employee worked yesterday (non-AE, Mon-Thu), still assigned today
+    // (unless today is a holiday or slot is AE)
+    if (a.slotType !== 'AE') {
+      const prevSlotType = assignByDateEmp.get(`${prevDate}_${a.employeeId}`);
+      if (prevSlotType && prevSlotType !== 'AE') {
+        const prevDow = getDOW(prevDate);
+        if (prevDow >= 1 && prevDow <= 4 && classifyDay(a.date, holidayDates) !== 'holiday') {
+          hardPenalty += VIOLETION_PENALTY;
+        }
+      }
+    }
+
+    // CHECK 7 violation: same slot type on consecutive days
+    if (a.slotType !== 'POST-AE' && a.slotType !== 'PREV_MONTH_POST_AE') {
+      const prevSlotType7 = assignByDateEmp.get(`${prevDate}_${a.employeeId}`);
+      if (prevSlotType7 && prevSlotType7 === a.slotType) {
+        hardPenalty += VIOLETION_PENALTY;
+      }
     }
   }
 
@@ -690,7 +717,7 @@ async function solve(data: SolverInputData) {
   }
 
   let bestAssignments: SolverAssignment[] = [...baseState.assignments];
-  let bestObjective = evaluateObjective(baseState, activeEmployees, allHolidays, config);
+  let bestObjective = evaluateObjective(baseState, activeEmployees, allHolidays, config, holidayDates);
   let bestUnfilled = slotSequence.length;
   let solverMode = 'Constructive';
   const warnings: string[] = [];
@@ -763,7 +790,7 @@ async function solve(data: SolverInputData) {
         }
       }
 
-      const obj = evaluateObjective(s, activeEmployees, allHolidays, config);
+      const obj = evaluateObjective(s, activeEmployees, allHolidays, config, holidayDates);
       obj.unfilledCount = unfilled;
       if (unfilled < bestUnfilled || (unfilled === bestUnfilled && !objectiveWorse(obj, bestObjective))) {
         bestUnfilled = unfilled;
@@ -798,7 +825,7 @@ async function solve(data: SolverInputData) {
           for (const emp of top) {
             const ns = deepCloneState(partial.state);
             applyAssignment(slot, emp, ns, holidayDates, allHolidays);
-            const obj = evaluateObjective(ns, activeEmployees, allHolidays, config);
+            const obj = evaluateObjective(ns, activeEmployees, allHolidays, config, holidayDates);
             nextBeam.push({ state: ns, unfilled: partial.unfilled, objective: obj });
           }
         } else {
@@ -879,7 +906,7 @@ async function solve(data: SolverInputData) {
           applyAssignment(slot, pick, s, holidayDates, allHolidays);
         }
 
-        const obj = evaluateObjective(s, activeEmployees, allHolidays, config);
+        const obj = evaluateObjective(s, activeEmployees, allHolidays, config, holidayDates);
         obj.unfilledCount = unfilled;
         if (unfilled < bestUnfilled || (unfilled === bestUnfilled && !objectiveWorse(obj, bestObjective))) {
           bestUnfilled = unfilled;
