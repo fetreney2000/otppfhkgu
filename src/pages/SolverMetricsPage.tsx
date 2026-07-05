@@ -33,29 +33,27 @@ export function SolverMetricsPage() {
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Group mb="md">
           <MonthPickerInput
-            value={monthFrom ? new Date(monthFrom + '-01T00:00:00.000Z') : null}
-            onChange={(val) => {
-              if (val) {
-                const d = new Date(val);
-                if (!isNaN(d.getTime())) setMonthFrom(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+            value={monthFrom ? new Date(parseInt(monthFrom.split('-')[0]), parseInt(monthFrom.split('-')[1]) - 1, 1) : null}
+            onChange={(value: any) => {
+              const d = new Date(value);
+              if (!isNaN(d.getTime())) {
+                setMonthFrom(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
               }
             }}
             label="Dari"
             size="sm"
-            valueFormat="MMMM YYYY"
             clearable={false}
           />
           <MonthPickerInput
-            value={monthTo ? new Date(monthTo + '-01T00:00:00.000Z') : null}
-            onChange={(val) => {
-              if (val) {
-                const d = new Date(val);
-                if (!isNaN(d.getTime())) setMonthTo(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+            value={monthTo ? new Date(parseInt(monthTo.split('-')[0]), parseInt(monthTo.split('-')[1]) - 1, 1) : null}
+            onChange={(value: any) => {
+              const d = new Date(value);
+              if (!isNaN(d.getTime())) {
+                setMonthTo(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
               }
             }}
             label="Hingga"
             size="sm"
-            valueFormat="MMMM YYYY"
             clearable={false}
           />
           <Button onClick={handleLoad} loading={loading} style={{ marginTop: 24 }}>Muat</Button>
