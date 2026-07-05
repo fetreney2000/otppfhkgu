@@ -53,12 +53,10 @@ export function RosterGenerationPage() {
           workerRef.current = null;
 
           if (res.success || res.assignments.length > 0) {
-            try {
-              await saveRoster(currentMonth, res.assignments, res.objective, res.solverMode, res.elapsedSeconds, res.warnings);
-              notifications.show({ title: 'Berjaya', message: `Jadual dijana: ${res.assignments.length} tugasan`, color: 'green' });
-            } catch {
-              notifications.show({ title: 'Ralat', message: 'Gagal menyimpan jadual ke pangkalan data', color: 'red' });
-            }
+            notifications.show({ title: 'Berjaya', message: `Jadual dijana: ${res.assignments.length} tugasan`, color: 'green' });
+            // Save in background — don't await
+            saveRoster(currentMonth, res.assignments, res.objective, res.solverMode, res.elapsedSeconds, res.warnings)
+              .catch(() => notifications.show({ title: 'Ralat', message: 'Gagal menyimpan jadual ke pangkalan data', color: 'red' }));
           } else {
             notifications.show({ title: 'Amaran', message: 'Penyelesaian tidak lengkap', color: 'orange' });
           }

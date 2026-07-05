@@ -60,6 +60,7 @@ interface AppState {
   generateRosterData: (month: string) => Promise<SolverInputData | null>;
   saveRoster: (month: string, assignments: unknown[], objective: unknown, solverMode: string, elapsedSeconds: number, warnings: string[]) => Promise<void>;
   editRosterCell: (month: string, date: string, slot: string, employeeName: string) => Promise<void>;
+  editRosterCopyCell: (month: string, date: string, slotType: string, employeeName: string) => Promise<void>;
   generateRosterCopy: (month: string) => Promise<void>;
 
   // Solver
@@ -216,6 +217,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   editRosterCell: async (month, date, slot, employeeName) => {
     await api.post('/roster/cell-edit', { month, date, slot, employeeName });
+  },
+  editRosterCopyCell: async (month, date, slotType, employeeName) => {
+    await api.post('/roster/copy-edit', { month, date, slotType, employeeName });
   },
   generateRosterCopy: async (month) => {
     await api.post('/roster/copy/generate', { month });

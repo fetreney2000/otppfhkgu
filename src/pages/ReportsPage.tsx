@@ -4,10 +4,11 @@ import { IconDownload } from '@tabler/icons-react';
 import { useAppStore } from '../stores/appStore';
 import { getDisplayMonth, formatDate, getDayName, formatCurrency } from '../utils/dates';
 import { generateRosterExcel } from '../utils/excelExport';
+import { RosterCalendar } from '../components/RosterCalendar';
 import type { RosterSummaryItem, RosterPaymentItem } from '../types';
 
 export function ReportsPage() {
-  const { currentMonth, rosterReport, rosterSummary, rosterPayment, holidays, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays } = useAppStore();
+  const { currentMonth, rosterReport, rosterSummary, rosterPayment, holidays, employees, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays, editRosterCell, editRosterCopyCell } = useAppStore();
   const [source, setSource] = useState('original');
   const [activeTab, setActiveTab] = useState<string | null>('calendar');
   const [loading, setLoading] = useState(false);
@@ -93,26 +94,22 @@ export function ReportsPage() {
         </Tabs.List>
 
         <Tabs.Panel value="calendar" pt="md">
-          <Stack gap="xs">
-            {sortedDates.map(date => (
-              <Card key={date} shadow="xs" padding="sm" withBorder>
-                <Group justify="space-between" mb="xs">
-                  <Group>
-                    <Badge color="blue">{formatDate(date)}</Badge>
-                    <Text size="sm" fw={500}>{getDayName(date)}</Text>
-                  </Group>
-                </Group>
-                <Group gap="xs" wrap="wrap">
-                  {rowsByDate.get(date)!.sort((a, b) => a.slotType.localeCompare(b.slotType)).map((r, i) => (
-                    <Badge key={i} color={r.slotType === 'AE' ? 'red' : r.slotType.startsWith('IPP') ? 'blue' : r.slotType.startsWith('OPD') ? 'orange' : 'grape'} variant="light" size="sm">
-                      {r.slotType}: {r.employeeName} ({r.hours}h)
-                    </Badge>
-                  ))}
-                </Group>
-              </Card>
-            ))}
-            {sortedDates.length === 0 && <Text c="dimmed" ta="center" py="xl">Tiada data jadual</Text>}
-          </Stack>
+          {rows.length > 0 ? (
+            <RosterCalendar
+              rows={rows}
+              month={currentMonth}
+              holidays={holidays}
+              employees={employees}
+              canEdit={true}
+              onEdit={async (date, slotType, employeeName) => {
+                const editFn = source === 'copy' ? editRosterCopyCell : editRosterCell;
+                await editFn(currentMonth, date, slotType, employeeName);
+                await loadRosterReport(currentMonth, source);
+              }}
+            />
+          ) : (
+            <Text c="dimmed" ta="center" py="xl">Tiada data jadual</Text>
+          )}
         </Tabs.Panel>
 
         <Tabs.Panel value="summary" pt="md">
