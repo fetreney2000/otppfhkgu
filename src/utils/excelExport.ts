@@ -135,9 +135,7 @@ export async function generateRosterExcel(
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Jadual OT Bersepadu';
   wb.created = new Date();
-  const ws = wb.addWorksheet('Jadual OT', {
-    views: [{ state: 'frozen', xSplit: 3, ySplit: 6 }],
-  });
+  const ws = wb.addWorksheet('Jadual OT');
 
   // ============================================
   // COLUMN WIDTHS (exact from template)
@@ -542,24 +540,17 @@ export async function generateRosterExcel(
     margins: { left: 0.25, right: 0.25, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
   };
 
-  // Generate buffer
+  // Generate and download
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const suffix = label === 'Asal' ? '' : `_${label}`;
   const fileName = `Jadual_OT_${monthName}_${yearStr}${suffix}.xlsx`;
   const url = URL.createObjectURL(blob);
-
-  // Try to open in new tab; fallback to download
-  const opened = window.open(url, '_blank');
-  if (!opened) {
-    // Popup blocked — fallback to download
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
-  // Revoke after a delay to allow the browser to start loading
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
