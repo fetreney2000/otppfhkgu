@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Table, Button, Title, Group, Stack, Modal, TextInput, Select, NumberInput, Switch, ActionIcon, Text, Badge, Loader, Center } from '@mantine/core';
 import { useAppStore } from '../stores/appStore';
 import { useAuthStore } from '../stores/authStore';
 import { notifications } from '@mantine/notifications';
 import { IconPlus, IconPencil, IconTrash } from '@tabler/icons-react';
+import { ThSort, useSortable } from '../components/SortableTh';
 import type { Employee, Department, EmployeeRole } from '../types';
 
 export function EmployeeManagement() {
@@ -15,6 +16,7 @@ export function EmployeeManagement() {
     email: '', maxHoursPerMonth: 40, salary: 0, password: '', active: true,
   });
 
+  const empSort = useSortable('employeeId', 'asc');
   useEffect(() => { loadEmployees(); }, [loadEmployees]);
 
   const openNew = () => {
@@ -71,13 +73,19 @@ export function EmployeeManagement() {
       <Table striped highlightOnHover withTableBorder>
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>ID</Table.Th><Table.Th>Nama</Table.Th><Table.Th>Unit</Table.Th>
-            <Table.Th>Jawatan</Table.Th><Table.Th>E-mel</Table.Th><Table.Th>Gaji</Table.Th>
-            <Table.Th>Jam Max</Table.Th><Table.Th>Status</Table.Th><Table.Th>Tindakan</Table.Th>
+            <ThSort sortKey="employeeId" current={empSort.sort} onToggle={empSort.toggle}>ID</ThSort>
+            <ThSort sortKey="name" current={empSort.sort} onToggle={empSort.toggle}>Nama</ThSort>
+            <ThSort sortKey="department" current={empSort.sort} onToggle={empSort.toggle}>Unit</ThSort>
+            <ThSort sortKey="role" current={empSort.sort} onToggle={empSort.toggle}>Jawatan</ThSort>
+            <ThSort sortKey="email" current={empSort.sort} onToggle={empSort.toggle}>E-mel</ThSort>
+            <ThSort sortKey="salary" current={empSort.sort} onToggle={empSort.toggle}>Gaji</ThSort>
+            <ThSort sortKey="maxHoursPerMonth" current={empSort.sort} onToggle={empSort.toggle}>Jam Max</ThSort>
+            <ThSort sortKey="active" current={empSort.sort} onToggle={empSort.toggle}>Status</ThSort>
+            <Table.Th>Tindakan</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {employees.map(emp => (
+          {empSort.sortArray(employees).map(emp => (
             <Table.Tr key={emp._id}>
               <Table.Td>{emp.employeeId}</Table.Td>
               <Table.Td>{emp.name}</Table.Td>

@@ -87,6 +87,7 @@ interface AppState {
 
   // Change Log
   changeLog: RosterChangeLog[];
+  loadChangeLog: (month: string) => Promise<void>;
 
   // Loading states
   loading: Record<string, boolean>;
@@ -263,6 +264,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   changeLog: [],
+  loadChangeLog: async (month) => {
+    try {
+      const res = await api.get<{ success: boolean; data: { changeLog: RosterChangeLog[] } }>(`/roster/change-log?month=${month}`);
+      if (res.success) set({ changeLog: res.data.changeLog || [] });
+    } catch {
+      set({ changeLog: [] });
+    }
+  },
   loading: {},
   setLoading: (key, value) => set({ loading: { ...get().loading, [key]: value } }),
 }));

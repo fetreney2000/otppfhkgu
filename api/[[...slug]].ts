@@ -654,6 +654,15 @@ app.post('/roster/cell-edit', authenticate, requireRole('admin', 'superadmin'), 
   } catch { return res.status(500).json({ success: false, error: 'Ralat pelayan' }); }
 });
 
+// ---- ROSTER CHANGE LOG ----
+app.get('/roster/change-log', authenticate, async (req, res) => {
+  try {
+    const month = req.query.month as string;
+    const changeLog = await RosterChangeLog.find({ month }).sort({ changedAt: -1 }).limit(200);
+    return res.json({ success: true, data: { changeLog } });
+  } catch { return res.status(500).json({ success: false, error: 'Ralat pelayan' }); }
+});
+
 // ---- ROSTER COPY ----
 app.post('/roster/copy/generate', authenticate, requireRole('admin', 'superadmin'), async (req, res) => {
   try {

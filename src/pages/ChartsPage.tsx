@@ -3,10 +3,12 @@ import { Card, Title, Stack, Table, Badge, Text, SimpleGrid, Loader, Center, Tab
 import { BarChart, DonutChart } from '@mantine/charts';
 import { useAppStore } from '../stores/appStore';
 import { getDisplayMonth, formatCurrency } from '../utils/dates';
+import { ThSort, useSortable } from '../components/SortableTh';
 
 export function ChartsPage() {
   const { currentMonth, rosterSummary, loadRosterSummary, annualData, loadAnnualAllocation } = useAppStore();
   const [loading, setLoading] = useState(false);
+  const annualSort = useSortable('annualAE', 'desc');
   const [activeTab, setActiveTab] = useState<string | null>('monthly');
 
   useEffect(() => {
@@ -112,13 +114,18 @@ export function ChartsPage() {
             <Table striped highlightOnHover withTableBorder>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>ID</Table.Th><Table.Th>Nama</Table.Th><Table.Th>Unit</Table.Th>
-                  <Table.Th>AE</Table.Th><Table.Th>AE Separuh Gaji</Table.Th><Table.Th>AE Bergaji</Table.Th>
-                  <Table.Th>PH+AE</Table.Th><Table.Th>PH</Table.Th>
+                  <ThSort sortKey="employeeId" current={annualSort.sort} onToggle={annualSort.toggle}>ID</ThSort>
+                  <ThSort sortKey="name" current={annualSort.sort} onToggle={annualSort.toggle}>Nama</ThSort>
+                  <ThSort sortKey="department" current={annualSort.sort} onToggle={annualSort.toggle}>Unit</ThSort>
+                  <ThSort sortKey="annualAE" current={annualSort.sort} onToggle={annualSort.toggle}>AE</ThSort>
+                  <ThSort sortKey="annualHalfPaidAE" current={annualSort.sort} onToggle={annualSort.toggle}>AE Separuh Gaji</ThSort>
+                  <ThSort sortKey="annualPaidAE" current={annualSort.sort} onToggle={annualSort.toggle}>AE Bergaji</ThSort>
+                  <ThSort sortKey="annualPHAE" current={annualSort.sort} onToggle={annualSort.toggle}>PH+AE</ThSort>
+                  <ThSort sortKey="annualPH" current={annualSort.sort} onToggle={annualSort.toggle}>PH</ThSort>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {annualEmployees.map(emp => (
+                {annualSort.sortArray(annualEmployees).map(emp => (
                   <Table.Tr key={emp.employeeId}>
                     <Table.Td>{emp.employeeId}</Table.Td>
                     <Table.Td>{emp.name}</Table.Td>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, Title, Stack, Table, Badge, Text, Group, Button, ScrollArea, Loader, Center } from '@mantine/core';
 import { MonthPickerInput } from '@mantine/dates';
 import { useAppStore } from '../stores/appStore';
+import { ThSort, useSortable } from '../components/SortableTh';
 import { BarChart } from '@mantine/charts';
 import dayjs from 'dayjs';
 
@@ -9,6 +10,7 @@ export function SolverMetricsPage() {
   const { solverMetrics, loadSolverMetrics } = useAppStore();
   const [monthFrom, setMonthFrom] = useState(dayjs().subtract(6, 'month').format('YYYY-MM'));
   const [monthTo, setMonthTo] = useState(dayjs().format('YYYY-MM'));
+  const metricsSort = useSortable('generatedAt', 'desc');
   const [loading, setLoading] = useState(false);
 
   const handleLoad = () => {
@@ -84,13 +86,20 @@ export function SolverMetricsPage() {
             <Table striped highlightOnHover withTableBorder>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Bulan</Table.Th><Table.Th>Mod</Table.Th><Table.Th>Masa(s)</Table.Th>
-                  <Table.Th>Slot</Table.Th><Table.Th>Diisi</Table.Th><Table.Th>Liputan%</Table.Th>
-                  <Table.Th>Keras</Table.Th><Table.Th>Lembut</Table.Th><Table.Th>Melebihi 1/3</Table.Th><Table.Th>Dev Jam</Table.Th>
+                  <ThSort sortKey="month" current={metricsSort.sort} onToggle={metricsSort.toggle}>Bulan</ThSort>
+                  <ThSort sortKey="solverMode" current={metricsSort.sort} onToggle={metricsSort.toggle}>Mod</ThSort>
+                  <ThSort sortKey="elapsedSeconds" current={metricsSort.sort} onToggle={metricsSort.toggle}>Masa(s)</ThSort>
+                  <ThSort sortKey="totalSlots" current={metricsSort.sort} onToggle={metricsSort.toggle}>Slot</ThSort>
+                  <ThSort sortKey="assignedSlots" current={metricsSort.sort} onToggle={metricsSort.toggle}>Diisi</ThSort>
+                  <ThSort sortKey="coveragePct" current={metricsSort.sort} onToggle={metricsSort.toggle}>Liputan%</ThSort>
+                  <ThSort sortKey="hardPenalty" current={metricsSort.sort} onToggle={metricsSort.toggle}>Keras</ThSort>
+                  <ThSort sortKey="softPenalty" current={metricsSort.sort} onToggle={metricsSort.toggle}>Lembut</ThSort>
+                  <ThSort sortKey="exceedOneThirdCount" current={metricsSort.sort} onToggle={metricsSort.toggle}>Melebihi 1/3</ThSort>
+                  <ThSort sortKey="roleHoursDeviation" current={metricsSort.sort} onToggle={metricsSort.toggle}>Dev Jam</ThSort>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {solverMetrics.map(m => (
+                {metricsSort.sortArray(solverMetrics).map(m => (
                   <Table.Tr key={m.runId}>
                     <Table.Td><Badge>{m.month}</Badge></Table.Td>
                     <Table.Td>{m.solverMode}</Table.Td>

@@ -3,6 +3,7 @@ import { Card, Title, Group, Stack, Table, Badge, Text, Select, ScrollArea, Load
 import { useAppStore } from '../stores/appStore';
 import { getDisplayMonth, formatDate, getDayName } from '../utils/dates';
 import api from '../utils/api';
+import { ThSort, useSortable } from '../components/SortableTh';
 
 interface UnavailRecord {
   employeeId: string;
@@ -15,6 +16,7 @@ export function AdminUnavailabilityPage() {
   const { currentMonth, employees, loadEmployees } = useAppStore();
   const [unavailData, setUnavailData] = useState<UnavailRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const unavailSort = useSortable('employeeId', 'asc');
   const [filterDept, setFilterDept] = useState<string | null>(null);
 
   useEffect(() => {
@@ -173,15 +175,15 @@ export function AdminUnavailabilityPage() {
             <Table striped highlightOnHover withTableBorder>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>ID</Table.Th>
-                  <Table.Th>Nama</Table.Th>
-                  <Table.Th>Unit</Table.Th>
-                  <Table.Th>Tarikh Tidak Hadir</Table.Th>
-                  <Table.Th>Jumlah</Table.Th>
+                  <ThSort sortKey="employeeId" current={unavailSort.sort} onToggle={unavailSort.toggle}>ID</ThSort>
+                  <ThSort sortKey="employeeName" current={unavailSort.sort} onToggle={unavailSort.toggle}>Nama</ThSort>
+                  <ThSort sortKey="department" current={unavailSort.sort} onToggle={unavailSort.toggle}>Unit</ThSort>
+                  <ThSort sortKey="dates" current={unavailSort.sort} onToggle={unavailSort.toggle}>Tarikh Tidak Hadir</ThSort>
+                  <ThSort sortKey="dates" current={unavailSort.sort} onToggle={unavailSort.toggle}>Jumlah</ThSort>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {filtered.map(r => (
+                {unavailSort.sortArray(filtered, r => r.dates.length).map(r => (
                   <Table.Tr key={r.employeeId}>
                     <Table.Td><Badge>{r.employeeId}</Badge></Table.Td>
                     <Table.Td fw={500}>{r.employeeName}</Table.Td>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Card, Title, Group, Stack, Table, Badge, Text, SegmentedControl, Tabs, SimpleGrid, Paper, ScrollArea, Loader, Center, Button, UnstyledButton, Alert } from '@mantine/core';
-import { IconDownload, IconChevronUp, IconChevronDown, IconSelector, IconAlertCircle } from '@tabler/icons-react';
+import { IconDownload, IconAlertCircle } from '@tabler/icons-react';
 import { useAppStore } from '../stores/appStore';
 import { useAuthStore } from '../stores/authStore';
 import { getDisplayMonth, formatDate, getDayName, formatCurrency } from '../utils/dates';
@@ -8,60 +8,23 @@ import { generateRosterExcel } from '../utils/excelExport';
 import { RosterCalendar } from '../components/RosterCalendar';
 import { notifications } from '@mantine/notifications';
 import type { RosterSummaryItem, RosterPaymentItem } from '../types';
+import { ThSort, useSortable } from '../components/SortableTh';
 
 export function ReportsPage() {
-  const { currentMonth, rosterReport, rosterSummary, rosterPayment, holidays, employees, rosterCopyExists, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays, editRosterCell, editRosterCopyCell, checkRosterCopyExists } = useAppStore();
+  const { currentMonth, rosterReport, rosterSummary, rosterPayment, holidays, employees, rosterCopyExists, changeLog, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays, loadChangeLog, editRosterCell, editRosterCopyCell, checkRosterCopyExists } = useAppStore();
   const { role } = useAuthStore();
   const isAdmin = role === 'admin' || role === 'superadmin';
   const [source, setSource] = useState('original');
   const [activeTab, setActiveTab] = useState<string | null>('calendar');
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [summarySort, setSummarySort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'totalHours', dir: 'desc' });
-  const [paymentSort, setPaymentSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'totalOTPay', dir: 'desc' });
+  const summarySort = useSortable('totalHours', 'desc');
+  const paymentSort = useSortable('totalOTPay', 'desc');
+  const logSort = useSortable('changedAt', 'desc');
 
-  const toggleSummarySort = (key: string) => setSummarySort(prev => ({ key, dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc' }));
-  const togglePaymentSort = (key: string) => setPaymentSort(prev => ({ key, dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc' }));
-
-  const SortIcon = ({ sortKey, current }: { sortKey: string; current: { key: string; dir: string } }) => {
-    if (current.key !== sortKey) return <IconSelector size={12} />;
-    return current.dir === 'asc' ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />;
-  };
-
-  const ThSort = ({ sortKey, current, onToggle, children }: { sortKey: string; current: { key: string; dir: string }; onToggle: (key: string) => void; children: React.ReactNode }) => (
-    <Table.Th>
-      <UnstyledButton onClick={() => onToggle(sortKey)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        {children} <SortIcon sortKey={sortKey} current={current} />
-      </UnstyledButton>
-    </Table.Th>
-  );
-
-  const sortedSummary = useMemo(() => {
-    const arr = [...rosterSummary];
-    arr.sort((a, b) => {
-      const av = a[summarySort.key as keyof typeof a] ?? 0;
-      const bv = b[summarySort.key as keyof typeof b] ?? 0;
-      if (typeof av === 'string' && typeof bv === 'string') return summarySort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-      return summarySort.dir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
-    });
-    return arr;
-  }, [rosterSummary, summarySort]);
-
-  const sortedPayment = useMemo(() => {
-    const arr = [...rosterPayment];
-    arr.sort((a, b) => {
-      const av = a[paymentSort.key as keyof typeof a] ?? 0;
-      const bv = b[paymentSort.key as keyof typeof b] ?? 0;
-      if (typeof av === 'string' && typeof bv === 'string') return paymentSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-      if (paymentSort.key === 'exceedsOneThird') {
-        const aVal = av ? 1 : 0;
-        const bVal = bv ? 1 : 0;
-        return paymentSort.dir === 'asc' ? aVal - bVal : bVal - aVal;
-      }
-      return paymentSort.dir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
-    });
-    return arr;
-  }, [rosterPayment, paymentSort]);
+  const sortedSummary = useMemo(() => summarySort.sortArray(rosterSummary), [rosterSummary, summarySort]);
+  const sortedPayment = useMemo(() => paymentSort.sortArray(rosterPayment), [rosterPayment, paymentSort]);
+  const sortedChangeLog = useMemo(() => logSort.sortArray(changeLog), [changeLog, logSort]);
 
   // Check salinan availability for regular users
   useEffect(() => {
@@ -89,8 +52,9 @@ export function ReportsPage() {
       loadRosterSummary(currentMonth, effectiveSource),
       loadRosterPayment(currentMonth, effectiveSource),
       loadHolidays(currentMonth),
+      loadChangeLog(currentMonth),
     ]).finally(() => setLoading(false));
-  }, [currentMonth, effectiveSource, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays]);
+  }, [currentMonth, effectiveSource, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays, loadChangeLog]);
 
   const roster = rosterReport?.roster;
 
@@ -211,16 +175,16 @@ export function ReportsPage() {
             <Table striped highlightOnHover withTableBorder>
               <Table.Thead>
                 <Table.Tr>
-                  <ThSort sortKey="employeeId" current={summarySort} onToggle={toggleSummarySort}>ID</ThSort>
-                  <ThSort sortKey="name" current={summarySort} onToggle={toggleSummarySort}>Nama</ThSort>
-                  <ThSort sortKey="department" current={summarySort} onToggle={toggleSummarySort}>Unit</ThSort>
-                  <ThSort sortKey="role" current={summarySort} onToggle={toggleSummarySort}>Jawatan</ThSort>
-                  <ThSort sortKey="totalHours" current={summarySort} onToggle={toggleSummarySort}>Jam</ThSort>
-                  <ThSort sortKey="slotCount" current={summarySort} onToggle={toggleSummarySort}>Slot</ThSort>
-                  <ThSort sortKey="aeCount" current={summarySort} onToggle={toggleSummarySort}>AE</ThSort>
-                  <ThSort sortKey="holidayCount" current={summarySort} onToggle={toggleSummarySort}>Cuti</ThSort>
-                  <ThSort sortKey="weekendCount" current={summarySort} onToggle={toggleSummarySort}>Hujung Minggu</ThSort>
-                  <ThSort sortKey="weekdayCount" current={summarySort} onToggle={toggleSummarySort}>Hari Bekerja</ThSort>
+                  <ThSort sortKey="employeeId" current={summarySort.sort} onToggle={summarySort.toggle}>ID</ThSort>
+                  <ThSort sortKey="name" current={summarySort.sort} onToggle={summarySort.toggle}>Nama</ThSort>
+                  <ThSort sortKey="department" current={summarySort.sort} onToggle={summarySort.toggle}>Unit</ThSort>
+                  <ThSort sortKey="role" current={summarySort.sort} onToggle={summarySort.toggle}>Jawatan</ThSort>
+                  <ThSort sortKey="totalHours" current={summarySort.sort} onToggle={summarySort.toggle}>Jam</ThSort>
+                  <ThSort sortKey="slotCount" current={summarySort.sort} onToggle={summarySort.toggle}>Slot</ThSort>
+                  <ThSort sortKey="aeCount" current={summarySort.sort} onToggle={summarySort.toggle}>AE</ThSort>
+                  <ThSort sortKey="holidayCount" current={summarySort.sort} onToggle={summarySort.toggle}>Cuti</ThSort>
+                  <ThSort sortKey="weekendCount" current={summarySort.sort} onToggle={summarySort.toggle}>Hujung Minggu</ThSort>
+                  <ThSort sortKey="weekdayCount" current={summarySort.sort} onToggle={summarySort.toggle}>Hari Bekerja</ThSort>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -243,12 +207,12 @@ export function ReportsPage() {
             <Table striped highlightOnHover withTableBorder>
               <Table.Thead>
                 <Table.Tr>
-                  <ThSort sortKey="employeeId" current={paymentSort} onToggle={togglePaymentSort}>ID</ThSort>
-                  <ThSort sortKey="name" current={paymentSort} onToggle={togglePaymentSort}>Nama</ThSort>
-                  <ThSort sortKey="salary" current={paymentSort} onToggle={togglePaymentSort}>Gaji</ThSort>
-                  <ThSort sortKey="hourlyRate" current={paymentSort} onToggle={togglePaymentSort}>Kadar/Jam</ThSort>
-                  <ThSort sortKey="totalOTPay" current={paymentSort} onToggle={togglePaymentSort}>Jumlah OT</ThSort>
-                  <ThSort sortKey="exceedsOneThird" current={paymentSort} onToggle={togglePaymentSort}>Melebihi 1/3</ThSort>
+                  <ThSort sortKey="employeeId" current={paymentSort.sort} onToggle={paymentSort.toggle}>ID</ThSort>
+                  <ThSort sortKey="name" current={paymentSort.sort} onToggle={paymentSort.toggle}>Nama</ThSort>
+                  <ThSort sortKey="salary" current={paymentSort.sort} onToggle={paymentSort.toggle}>Gaji</ThSort>
+                  <ThSort sortKey="hourlyRate" current={paymentSort.sort} onToggle={paymentSort.toggle}>Kadar/Jam</ThSort>
+                  <ThSort sortKey="totalOTPay" current={paymentSort.sort} onToggle={paymentSort.toggle}>Jumlah OT</ThSort>
+                  <ThSort sortKey="exceedsOneThird" current={paymentSort.sort} onToggle={paymentSort.toggle}>Melebihi 1/3</ThSort>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -270,23 +234,29 @@ export function ReportsPage() {
             <Table striped withTableBorder>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Tarikh</Table.Th><Table.Th>Slot</Table.Th><Table.Th>ID</Table.Th>
-                  <Table.Th>Nama</Table.Th><Table.Th>Layak</Table.Th><Table.Th>Sebab</Table.Th>
+                  <ThSort sortKey="changedAt" current={logSort.sort} onToggle={logSort.toggle}>Masa</ThSort>
+                  <ThSort sortKey="slot" current={logSort.sort} onToggle={logSort.toggle}>Slot</ThSort>
+                  <ThSort sortKey="changedByName" current={logSort.sort} onToggle={logSort.toggle}>Oleh</ThSort>
+                  <ThSort sortKey="oldEmployee" current={logSort.sort} onToggle={logSort.toggle}>Dari</ThSort>
+                  <ThSort sortKey="newEmployee" current={logSort.sort} onToggle={logSort.toggle}>Ke</ThSort>
+                  <ThSort sortKey="date" current={logSort.sort} onToggle={logSort.toggle}>Tarikh</ThSort>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {log.slice(0, 200).map((l, i) => (
+                {sortedChangeLog.slice(0, 200).map((c, i) => (
                   <Table.Tr key={i}>
-                    <Table.Td>{l.date}</Table.Td><Table.Td>{l.slot}</Table.Td><Table.Td>{l.employeeId}</Table.Td>
-                    <Table.Td>{l.name}</Table.Td>
-                    <Table.Td><Badge color={l.eligible ? 'green' : 'red'} size="xs">{l.eligible ? 'Ya' : 'Tidak'}</Badge></Table.Td>
-                    <Table.Td><Text size="xs">{l.reasons}</Text></Table.Td>
+                    <Table.Td>{c.changedAt ? new Date(c.changedAt).toLocaleString('ms-MY') : ''}</Table.Td>
+                    <Table.Td><Badge color="blue" size="xs">{c.slot}</Badge></Table.Td>
+                    <Table.Td>{c.changedByName}</Table.Td>
+                    <Table.Td>{c.oldEmployee || <Text c="dimmed">—</Text>}</Table.Td>
+                    <Table.Td>{c.newEmployee || <Text c="dimmed">—</Text>}</Table.Td>
+                    <Table.Td><Badge color={c.action === 'ASSIGN' ? 'green' : c.action === 'CLEAR' ? 'red' : 'orange'} size="xs">{c.action}</Badge></Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
             </Table>
           </ScrollArea>
-          {log.length === 0 && <Text c="dimmed" ta="center" py="xl">Tiada log kelayakan</Text>}
+          {sortedChangeLog.length === 0 && <Text c="dimmed" ta="center" py="xl">Tiada log perubahan</Text>}
         </Tabs.Panel>
 
         <Tabs.Panel value="unfilled" pt="md">
