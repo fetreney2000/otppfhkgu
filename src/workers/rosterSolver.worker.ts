@@ -216,6 +216,13 @@ function isEligible(emp: Employee, slot: SolverSlot, state: SolverState, holiday
   // CHECK 5: POST-AE NEXT-DAY BLOCK
   if (state.postAEBlock[empId]?.[dateStr]) return false;
 
+  // Also check if employee did AE yesterday in current solution
+  // (handles back-loaded strategies where tomorrow is processed before today)
+  const prevDayForBlock = addDays(dateStr, -1);
+  if (state.assignments.some(a => a.date === prevDayForBlock && a.employeeId === empId && a.slotType === 'AE')) {
+    return false;
+  }
+
   // CHECK 6: CONSECUTIVE DAY RULE
   // If employee worked yesterday (non-AE, Mon-Thu), they CANNOT work today
   // (unless today is a holiday or slot is AE)
@@ -309,6 +316,13 @@ function isEligibleRelaxed(emp: Employee, slot: SolverSlot, state: SolverState, 
   if (state.assignedToday[dateStr]?.[empId]) return false;
   if (state.unavailSet?.has(`${dateStr}_${empId}`)) return false;
   if (state.postAEBlock[empId]?.[dateStr]) return false;
+
+  // Also check if employee did AE yesterday in current solution
+  const prevDayForBlockR = addDays(dateStr, -1);
+  if (state.assignments.some(a => a.date === prevDayForBlockR && a.employeeId === empId && a.slotType === 'AE')) {
+    return false;
+  }
+
   if ((state.hoursUsed[empId] || 0) + slot.hours > (emp.maxHoursPerMonth || 40)) return false;
 
   if (slot.dayType === 'weekday' && slot.slotType !== 'AE') {
