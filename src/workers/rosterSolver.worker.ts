@@ -216,13 +216,6 @@ function isEligible(emp: Employee, slot: SolverSlot, state: SolverState, holiday
   // CHECK 5: POST-AE NEXT-DAY BLOCK
   if (state.postAEBlock[empId]?.[dateStr]) return false;
 
-  // Also check if employee did AE yesterday in current solution
-  // (handles back-loaded strategies where tomorrow is processed before today)
-  const prevDayForBlock = addDays(dateStr, -1);
-  if (state.assignments.some(a => a.date === prevDayForBlock && a.employeeId === empId && a.slotType === 'AE')) {
-    return false;
-  }
-
   // CHECK 6: CONSECUTIVE DAY RULE
   // If employee worked yesterday (non-AE, Mon-Thu), they CANNOT work today
   // (unless today is a holiday or slot is AE)
@@ -316,12 +309,6 @@ function isEligibleRelaxed(emp: Employee, slot: SolverSlot, state: SolverState, 
   if (state.assignedToday[dateStr]?.[empId]) return false;
   if (state.unavailSet?.has(`${dateStr}_${empId}`)) return false;
   if (state.postAEBlock[empId]?.[dateStr]) return false;
-
-  // Also check if employee did AE yesterday in current solution
-  const prevDayForBlockR = addDays(dateStr, -1);
-  if (state.assignments.some(a => a.date === prevDayForBlockR && a.employeeId === empId && a.slotType === 'AE')) {
-    return false;
-  }
 
   if ((state.hoursUsed[empId] || 0) + slot.hours > (emp.maxHoursPerMonth || 40)) return false;
 
@@ -480,54 +467,6 @@ function evaluateObjective(state: SolverState, employees: Employee[], allHoliday
   softPenalty += Math.round(roleStdMax * parseInt(config.PENALTY_WEIGHT_SOFT_ROLE_DEV || '10'));
   hardPenalty += Math.round(Math.max(0, roleStdMax - parseInt(config.TARGET_ROLE_STD_DEV || '7')) * parseInt(config.PENALTY_WEIGHT_HARD_ROLE_STD || '160'));
   softPenalty += Math.round(Math.max(0, roleStdMax - parseInt(config.TARGET_ROLE_STD_DEV || '7')) * parseInt(config.PENALTY_WEIGHT_SOFT_ROLE_STD_OVER || '900'));
-
-  // POST-VALIDATION: Penalize solutions that violate CHECK 5/6/7
-  // These constraints depend on chronological order and can't be fully enforced
-  // during non-chronological strategies, so we penalize violations heavily.
-  const VIOLETION_PENALTY = 500;
-  const aeByDateEmp = new Map<string, Set<string>>();
-  for (const a of state.assignments) {
-    if (a.slotType === 'AE') {
-      const key = a.date;
-      if (!aeByDateEmp.has(key)) aeByDateEmp.set(key, new Set());
-      aeByDateEmp.get(key)!.add(a.employeeId);
-    }
-  }
-  // Build lookup: date+empId -> slotType for all non-marker assignments
-  const assignByDateEmp = new Map<string, string>();
-  for (const a of state.assignments) {
-    if (a.slotType === 'POST-AE' || a.slotType === 'PREV_MONTH_POST_AE') continue;
-    assignByDateEmp.set(`${a.date}_${a.employeeId}`, a.slotType);
-  }
-
-  for (const a of state.assignments) {
-    if (a.slotType === 'POST-AE' || a.slotType === 'PREV_MONTH_POST_AE') continue;
-    // CHECK 5 violation: employee did AE yesterday, still assigned today
-    const prevDate = addDays(a.date, -1);
-    if (aeByDateEmp.get(prevDate)?.has(a.employeeId)) {
-      hardPenalty += VIOLETION_PENALTY;
-    }
-
-    // CHECK 6 violation: employee worked yesterday (non-AE, Mon-Thu), still assigned today
-    // (unless today is a holiday or slot is AE)
-    if (a.slotType !== 'AE') {
-      const prevSlotType = assignByDateEmp.get(`${prevDate}_${a.employeeId}`);
-      if (prevSlotType && prevSlotType !== 'AE') {
-        const prevDow = getDOW(prevDate);
-        if (prevDow >= 1 && prevDow <= 4 && classifyDay(a.date, holidayDates) !== 'holiday') {
-          hardPenalty += VIOLETION_PENALTY;
-        }
-      }
-    }
-
-    // CHECK 7 violation: same slot type on consecutive days
-    if (a.slotType !== 'POST-AE' && a.slotType !== 'PREV_MONTH_POST_AE') {
-      const prevSlotType7 = assignByDateEmp.get(`${prevDate}_${a.employeeId}`);
-      if (prevSlotType7 && prevSlotType7 === a.slotType) {
-        hardPenalty += VIOLETION_PENALTY;
-      }
-    }
-  }
 
   return { hardPenalty, exceedOneThirdCount, roleHoursDeviation: roleStdMax, roleStdMax, softPenalty, assignedHours, utilizationSpread: utilSpread, unfilledCount: state.unfilledCount };
 }
@@ -728,7 +667,7 @@ async function solve(data: SolverInputData) {
 
   // STRATEGY A: Multiple constructive strategies with randomization
   const strategies = ['most-constrained', 'fairness-first', 'front-loaded', 'back-loaded', 'department-balanced', 'minimum-monthly-deficit'];
-  const restarts = Math.floor(parseInt(config.SOLVER_CONSTRUCTIVE_RESTARTS || '100') / strategies.length);
+  const restarts = Math.floor(parseInt(config.SOLVER_CONSTRUCTIVE_RESTARTS || '150') / strategies.length);
 
   for (let si = 0; si < strategies.length && !cancelled; si++) {
     const strategy = strategies[si];
@@ -859,7 +798,7 @@ async function solve(data: SolverInputData) {
   // STRATEGY C: Structured Constructive (fallback if bestUnfilled > 0)
   if (bestUnfilled > 0 && !cancelled) {
     const cStrategies = ['most-constrained-first', 'fairness-first', 'front-loaded', 'back-loaded', 'department-balanced', 'minimum-monthly-deficit'];
-    const cRestarts = Math.floor(parseInt(config.SOLVER_CONSTRUCTIVE_RESTARTS || '100') / cStrategies.length);
+  const cRestarts = Math.floor(parseInt(config.SOLVER_CONSTRUCTIVE_RESTARTS || '150') / cStrategies.length);
 
     for (let si = 0; si < cStrategies.length && !cancelled; si++) {
       const strategy = cStrategies[si];
