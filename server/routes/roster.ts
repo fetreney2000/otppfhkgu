@@ -279,11 +279,12 @@ router.get('/exists', async (req: AuthRequest, res: Response) => {
 // GET /api/roster/report
 router.get('/report', async (req: AuthRequest, res: Response) => {
   try {
-    const { month } = req.query;
+    const { month, source } = req.query;
     const monthStr = month as string;
+    const type = (source as string) === 'copy' ? 'copy' : 'original';
     
     const [roster, log] = await Promise.all([
-      RosterSheet.findOne({ month: monthStr, type: 'original' }),
+      RosterSheet.findOne({ month: monthStr, type }),
       EligibilityLog.find({ month: monthStr }),
     ]);
 

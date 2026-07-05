@@ -1,18 +1,38 @@
-import { useEffect, useState } from 'react';
-import { Card, Title, Group, Stack, Badge, Text, SegmentedControl, SimpleGrid, Loader, Center } from '@mantine/core';
+import { useEffect, useState, useCallback } from 'react';
+import { Card, Title, Group, Stack, Badge, Text, SegmentedControl, SimpleGrid, Loader, Center, Button } from '@mantine/core';
 import { useAppStore } from '../stores/appStore';
 import { getDisplayMonth, formatDate, getDayName, formatCurrency } from '../utils/dates';
-import { IconClock, IconMapPin, IconCash } from '@tabler/icons-react';
+import { generateRosterExcel } from '../utils/excelExport';
+import { IconClock, IconMapPin, IconCash, IconDownload } from '@tabler/icons-react';
 import type { RosterRow } from '../types';
 
 export function MySchedulePage() {
-  const { currentMonth, employeeData, loadEmployeeDashboard, loadRosterSummary } = useAppStore();
+  const { currentMonth, employeeData, rosterReport, holidays, loadEmployeeDashboard, loadRosterReport, loadRosterSummary, loadHolidays } = useAppStore();
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    loadEmployeeDashboard(currentMonth).finally(() => setLoading(false));
-  }, [currentMonth, loadEmployeeDashboard]);
+    Promise.all([
+      loadEmployeeDashboard(currentMonth),
+      loadRosterReport(currentMonth, 'original'),
+      loadHolidays(currentMonth),
+    ]).finally(() => setLoading(false));
+  }, [currentMonth, loadEmployeeDashboard, loadRosterReport, loadHolidays]);
+
+  const fullRoster = rosterReport?.roster;
+
+  const handleExportExcel = useCallback(async () => {
+    if (!fullRoster?.rows || fullRoster.rows.length === 0) return;
+    setExporting(true);
+    try {
+      await generateRosterExcel(fullRoster.rows, currentMonth, holidays, 'Asal');
+    } catch (err) {
+      console.error('Excel export error:', err);
+    } finally {
+      setExporting(false);
+    }
+  }, [fullRoster, currentMonth, holidays]);
 
   const schedule = employeeData?.schedule || [];
   const profile = employeeData?.profile;
@@ -32,6 +52,16 @@ export function MySchedulePage() {
     <Stack gap="lg">
       <Group justify="space-between">
         <Title order={2}>Jadual Saya — {getDisplayMonth(currentMonth)}</Title>
+        <Button
+          leftSection={<IconDownload size={16} />}
+          variant="light"
+          color="green"
+          loading={exporting}
+          disabled={!fullRoster?.rows || fullRoster.rows.length === 0}
+          onClick={handleExportExcel}
+        >
+          Muat Turun Jadual Penuh (Excel)
+        </Button>
       </Group>
 
       {profile && (

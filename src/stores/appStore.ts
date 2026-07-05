@@ -53,7 +53,7 @@ interface AppState {
   rosterPayment: RosterPaymentItem[];
   rosterExists: boolean;
   rosterCopyExists: boolean;
-  loadRosterReport: (month: string) => Promise<void>;
+  loadRosterReport: (month: string, source?: string) => Promise<void>;
   loadRosterSummary: (month: string, source: string) => Promise<void>;
   loadRosterPayment: (month: string, source: string) => Promise<void>;
   checkRosterExists: (month: string) => Promise<boolean>;
@@ -189,8 +189,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   rosterPayment: [],
   rosterExists: false,
   rosterCopyExists: false,
-  loadRosterReport: async (month) => {
-    const res = await api.get<{ success: boolean; data: RosterReport }>(`/roster/report?month=${month}`);
+  loadRosterReport: async (month, source = 'original') => {
+    const res = await api.get<{ success: boolean; data: RosterReport }>(`/roster/report?month=${month}&source=${source}`);
     if (res.success) set({ rosterReport: res.data });
   },
   loadRosterSummary: async (month, source) => {

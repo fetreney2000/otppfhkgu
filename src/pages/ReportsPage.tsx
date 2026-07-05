@@ -1,25 +1,42 @@
-import { useEffect, useState } from 'react';
-import { Card, Title, Group, Stack, Table, Badge, Text, SegmentedControl, Tabs, SimpleGrid, Paper, ScrollArea, Loader, Center } from '@mantine/core';
+import { useEffect, useState, useCallback } from 'react';
+import { Card, Title, Group, Stack, Table, Badge, Text, SegmentedControl, Tabs, SimpleGrid, Paper, ScrollArea, Loader, Center, Button } from '@mantine/core';
+import { IconDownload } from '@tabler/icons-react';
 import { useAppStore } from '../stores/appStore';
 import { getDisplayMonth, formatDate, getDayName, formatCurrency } from '../utils/dates';
+import { generateRosterExcel } from '../utils/excelExport';
 import type { RosterSummaryItem, RosterPaymentItem } from '../types';
 
 export function ReportsPage() {
-  const { currentMonth, rosterReport, rosterSummary, rosterPayment, loadRosterReport, loadRosterSummary, loadRosterPayment } = useAppStore();
+  const { currentMonth, rosterReport, rosterSummary, rosterPayment, holidays, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays } = useAppStore();
   const [source, setSource] = useState('original');
   const [activeTab, setActiveTab] = useState<string | null>('calendar');
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      loadRosterReport(currentMonth),
+      loadRosterReport(currentMonth, source),
       loadRosterSummary(currentMonth, source),
       loadRosterPayment(currentMonth, source),
+      loadHolidays(currentMonth),
     ]).finally(() => setLoading(false));
-  }, [currentMonth, source, loadRosterReport, loadRosterSummary, loadRosterPayment]);
+  }, [currentMonth, source, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays]);
 
   const roster = rosterReport?.roster;
+
+  const handleExportExcel = useCallback(async () => {
+    if (!roster?.rows || roster.rows.length === 0) return;
+    setExporting(true);
+    try {
+      const label = source === 'copy' ? 'Salinan' : 'Asal';
+      await generateRosterExcel(roster.rows, currentMonth, holidays, label);
+    } catch (err) {
+      console.error('Excel export error:', err);
+    } finally {
+      setExporting(false);
+    }
+  }, [roster, currentMonth, holidays, source]);
   const rows = roster?.rows || [];
   const log = rosterReport?.log || [];
   const unfilled = rosterReport?.unfilled || [];
@@ -44,7 +61,19 @@ export function ReportsPage() {
     <Stack gap="lg">
       <Group justify="space-between">
         <Title order={2}>Laporan — {getDisplayMonth(currentMonth)}</Title>
-        <SegmentedControl value={source} onChange={setSource} data={[{ label: 'Asal', value: 'original' }, { label: 'Salinan', value: 'copy' }]} />
+        <Group>
+          <SegmentedControl value={source} onChange={(v) => setSource(v as string)} data={[{ label: 'Asal', value: 'original' }, { label: 'Salinan', value: 'copy' }]} />
+          <Button
+            leftSection={<IconDownload size={16} />}
+            variant="light"
+            color="green"
+            loading={exporting}
+            disabled={!roster?.rows || roster.rows.length === 0}
+            onClick={handleExportExcel}
+          >
+            Muat Turun Excel
+          </Button>
+        </Group>
       </Group>
 
       <SimpleGrid cols={{ base: 2, md: 4 }}>
