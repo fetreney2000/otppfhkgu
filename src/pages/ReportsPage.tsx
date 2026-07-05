@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Card, Title, Group, Stack, Table, Badge, Text, SegmentedControl, Tabs, SimpleGrid, Paper, ScrollArea, Loader, Center, Button } from '@mantine/core';
-import { IconDownload } from '@tabler/icons-react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Card, Title, Group, Stack, Table, Badge, Text, SegmentedControl, Tabs, SimpleGrid, Paper, ScrollArea, Loader, Center, Button, UnstyledButton } from '@mantine/core';
+import { IconDownload, IconChevronUp, IconChevronDown, IconSelector } from '@tabler/icons-react';
 import { useAppStore } from '../stores/appStore';
 import { getDisplayMonth, formatDate, getDayName, formatCurrency } from '../utils/dates';
 import { generateRosterExcel } from '../utils/excelExport';
@@ -13,6 +13,51 @@ export function ReportsPage() {
   const [activeTab, setActiveTab] = useState<string | null>('calendar');
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [summarySort, setSummarySort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'totalHours', dir: 'desc' });
+  const [paymentSort, setPaymentSort] = useState<{ key: string; dir: 'asc' | 'desc' }>({ key: 'totalOTPay', dir: 'desc' });
+
+  const toggleSummarySort = (key: string) => setSummarySort(prev => ({ key, dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc' }));
+  const togglePaymentSort = (key: string) => setPaymentSort(prev => ({ key, dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc' }));
+
+  const SortIcon = ({ sortKey, current }: { sortKey: string; current: { key: string; dir: string } }) => {
+    if (current.key !== sortKey) return <IconSelector size={12} />;
+    return current.dir === 'asc' ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />;
+  };
+
+  const ThSort = ({ sortKey, current, onToggle, children }: { sortKey: string; current: { key: string; dir: string }; onToggle: (key: string) => void; children: React.ReactNode }) => (
+    <Table.Th>
+      <UnstyledButton onClick={() => onToggle(sortKey)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {children} <SortIcon sortKey={sortKey} current={current} />
+      </UnstyledButton>
+    </Table.Th>
+  );
+
+  const sortedSummary = useMemo(() => {
+    const arr = [...rosterSummary];
+    arr.sort((a, b) => {
+      const av = a[summarySort.key as keyof typeof a] ?? 0;
+      const bv = b[summarySort.key as keyof typeof b] ?? 0;
+      if (typeof av === 'string' && typeof bv === 'string') return summarySort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      return summarySort.dir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
+    return arr;
+  }, [rosterSummary, summarySort]);
+
+  const sortedPayment = useMemo(() => {
+    const arr = [...rosterPayment];
+    arr.sort((a, b) => {
+      const av = a[paymentSort.key as keyof typeof a] ?? 0;
+      const bv = b[paymentSort.key as keyof typeof b] ?? 0;
+      if (typeof av === 'string' && typeof bv === 'string') return paymentSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      if (paymentSort.key === 'exceedsOneThird') {
+        const aVal = av ? 1 : 0;
+        const bVal = bv ? 1 : 0;
+        return paymentSort.dir === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      return paymentSort.dir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
+    return arr;
+  }, [rosterPayment, paymentSort]);
 
   useEffect(() => {
     setLoading(true);
@@ -117,13 +162,20 @@ export function ReportsPage() {
             <Table striped highlightOnHover withTableBorder>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>ID</Table.Th><Table.Th>Nama</Table.Th><Table.Th>Unit</Table.Th>
-                  <Table.Th>Jawatan</Table.Th><Table.Th>Jam</Table.Th><Table.Th>Slot</Table.Th>
-                  <Table.Th>AE</Table.Th><Table.Th>Cuti</Table.Th><Table.Th>Hujung Minggu</Table.Th><Table.Th>Hari Bekerja</Table.Th>
+                  <ThSort sortKey="employeeId" current={summarySort} onToggle={toggleSummarySort}>ID</ThSort>
+                  <ThSort sortKey="name" current={summarySort} onToggle={toggleSummarySort}>Nama</ThSort>
+                  <ThSort sortKey="department" current={summarySort} onToggle={toggleSummarySort}>Unit</ThSort>
+                  <ThSort sortKey="role" current={summarySort} onToggle={toggleSummarySort}>Jawatan</ThSort>
+                  <ThSort sortKey="totalHours" current={summarySort} onToggle={toggleSummarySort}>Jam</ThSort>
+                  <ThSort sortKey="slotCount" current={summarySort} onToggle={toggleSummarySort}>Slot</ThSort>
+                  <ThSort sortKey="aeCount" current={summarySort} onToggle={toggleSummarySort}>AE</ThSort>
+                  <ThSort sortKey="holidayCount" current={summarySort} onToggle={toggleSummarySort}>Cuti</ThSort>
+                  <ThSort sortKey="weekendCount" current={summarySort} onToggle={toggleSummarySort}>Hujung Minggu</ThSort>
+                  <ThSort sortKey="weekdayCount" current={summarySort} onToggle={toggleSummarySort}>Hari Bekerja</ThSort>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {rosterSummary.map(s => (
+                {sortedSummary.map(s => (
                   <Table.Tr key={s.employeeId}>
                     <Table.Td>{s.employeeId}</Table.Td><Table.Td>{s.name}</Table.Td>
                     <Table.Td><Badge color={s.department === 'IPP' ? 'blue' : 'orange'} size="xs">{s.department}</Badge></Table.Td>
@@ -142,12 +194,16 @@ export function ReportsPage() {
             <Table striped highlightOnHover withTableBorder>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>ID</Table.Th><Table.Th>Nama</Table.Th><Table.Th>Gaji</Table.Th>
-                  <Table.Th>Kadar/Jam</Table.Th><Table.Th>Jumlah OT</Table.Th><Table.Th>Melebihi 1/3</Table.Th>
+                  <ThSort sortKey="employeeId" current={paymentSort} onToggle={togglePaymentSort}>ID</ThSort>
+                  <ThSort sortKey="name" current={paymentSort} onToggle={togglePaymentSort}>Nama</ThSort>
+                  <ThSort sortKey="salary" current={paymentSort} onToggle={togglePaymentSort}>Gaji</ThSort>
+                  <ThSort sortKey="hourlyRate" current={paymentSort} onToggle={togglePaymentSort}>Kadar/Jam</ThSort>
+                  <ThSort sortKey="totalOTPay" current={paymentSort} onToggle={togglePaymentSort}>Jumlah OT</ThSort>
+                  <ThSort sortKey="exceedsOneThird" current={paymentSort} onToggle={togglePaymentSort}>Melebihi 1/3</ThSort>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {rosterPayment.map(p => (
+                {sortedPayment.map(p => (
                   <Table.Tr key={p.employeeId} style={p.exceedsOneThird ? { backgroundColor: '#fff5f5' } : undefined}>
                     <Table.Td>{p.employeeId}</Table.Td><Table.Td>{p.name}</Table.Td>
                     <Table.Td>{formatCurrency(p.salary)}</Table.Td><Table.Td>{formatCurrency(p.hourlyRate)}</Table.Td>
