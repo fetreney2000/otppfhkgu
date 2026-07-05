@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react';
-import { SimpleGrid, Card, Text, TextInput, Select, Title, Group, Badge, Button, Stack, Loader, Center, Timeline, ActionIcon, Modal, Radio, Table, Alert, ScrollArea } from '@mantine/core';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { SimpleGrid, Card, Text, TextInput, Select, Title, Group, Badge, Button, Stack, Loader, Center, Timeline, ActionIcon, Modal, Radio, Table, Alert, ScrollArea, Progress } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useAppStore } from '../stores/appStore';
 import { getDisplayMonth, getCalendarDays, getDayName, formatDate } from '../utils/dates';
 import { notifications } from '@mantine/notifications';
 import {
   IconUsers, IconCalendarEvent, IconCalendarDue, IconCalendarCog,
-  IconRefresh, IconPlayerPlay, IconCopy, IconClock, IconTrash, IconCalendarStats,
+  IconRefresh, IconPlayerPlay, IconCopy, IconClock, IconTrash, IconCalendarStats, IconCheck,
 } from '@tabler/icons-react';
+import type { SolverProgress, SolverResult, SolverInputData } from '../types';
 
 export function AdminDashboard() {
   const {
@@ -87,6 +88,40 @@ export function AdminDashboard() {
   const weekdays = ['Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu', 'Ahad'];
   const slotTypes = ['AE', 'IPP_1', 'OPD_1', 'PP_PPF'];
   const empOptions = activeEmps.map(e => ({ value: e.employeeId, label: `${e.employeeId} — ${e.name}` }));
+
+  const [solverRunning, setSolverRunning] = useState(false);
+  const [solverProgress, setSolverProgress] = useState<SolverProgress | null>(null);
+  const [solverResult, setSolverResult] = useState<SolverResult | null>(null);
+  const [progressModalOpen, setProgressModalOpen] = useState(false);
+  const workerRef = useRef<Worker | null>(null);
+  const { generateRosterData, saveRoster, generateRosterCopy } = useAppStore();
+
+  const handleGenerate = useCallback(async () => {
+    setSolverRunning(true); setSolverResult(null); setProgressModalOpen(true);
+    setSolverProgress({ type: 'progress', percent: 0, stage: 'init', stageLabel: 'Menyediakan data...', message: 'Memuat data dari pelayan', attempt: 0, totalAttempts: 0, bestUnfilled: 0 });
+    try {
+      const data: SolverInputData | null = await generateRosterData(currentMonth);
+      if (!data) { notifications.show({ title: 'Ralat', message: 'Gagal mendapat data jadual', color: 'red' }); setSolverRunning(false); setProgressModalOpen(false); return; }
+      const worker = new Worker(new URL('../workers/rosterSolver.worker.ts', import.meta.url), { type: 'module' });
+      workerRef.current = worker;
+      worker.onmessage = async (e: MessageEvent<SolverProgress | SolverResult>) => {
+        if (e.data.type === 'progress') setSolverProgress(e.data as SolverProgress);
+        else if (e.data.type === 'result') {
+          const res = e.data as SolverResult; setSolverResult(res); setSolverRunning(false); worker.terminate(); workerRef.current = null;
+          if (res.success || res.assignments.length > 0) {
+            try { await saveRoster(currentMonth, res.assignments, res.objective, res.solverMode, res.elapsedSeconds, res.warnings); notifications.show({ title: 'Berjaya', message: `Jadual dijana: ${res.assignments.length} tugasan`, color: 'green' }); loadAdminDashboard(currentMonth); }
+            catch { notifications.show({ title: 'Ralat', message: 'Gagal menyimpan jadual', color: 'red' }); }
+          }
+        }
+      };
+      worker.onerror = () => { notifications.show({ title: 'Ralat', message: 'Ralat solver', color: 'red' }); setSolverRunning(false); worker.terminate(); };
+      worker.postMessage({ type: 'start', data });
+    } catch { notifications.show({ title: 'Ralat', message: 'Gagal menjana jadual', color: 'red' }); setSolverRunning(false); }
+  }, [currentMonth, generateRosterData, saveRoster, loadAdminDashboard]);
+
+  const handleCancel = () => { if (workerRef.current) { workerRef.current.postMessage({ type: 'cancel' }); workerRef.current.terminate(); workerRef.current = null; } setSolverRunning(false); setProgressModalOpen(false); };
+
+  const handleGenerateCopy = async () => { try { await generateRosterCopy(currentMonth); notifications.show({ title: 'Berjaya', message: 'Salinan jadual dijana', color: 'green' }); loadAdminDashboard(currentMonth); } catch { notifications.show({ title: 'Ralat', message: 'Gagal menjana salinan', color: 'red' }); } };
 
   if (loading.admin) {
     return <Center style={{ height: 400 }}><Loader size="lg" /></Center>;
@@ -208,8 +243,8 @@ export function AdminDashboard() {
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Title order={4} mb="md">Operasi</Title>
         <Group>
-          <Button leftSection={<IconPlayerPlay size={16} />} onClick={() => window.location.href = '/roster-generation'}>Jana Jadual</Button>
-          <Button variant="outline" leftSection={<IconCopy size={16} />} onClick={() => window.location.href = '/roster-generation'}>Hasilkan Salinan</Button>
+          <Button leftSection={<IconPlayerPlay size={16} />} onClick={handleGenerate} loading={solverRunning}>Jana Jadual</Button>
+          <Button variant="outline" leftSection={<IconCopy size={16} />} onClick={handleGenerateCopy}>Hasilkan Salinan</Button>
           <Button variant="light" leftSection={<IconRefresh size={16} />} onClick={() => loadAdminDashboard(currentMonth)}>Muat Semula</Button>
         </Group>
       </Card>
@@ -245,12 +280,28 @@ export function AdminDashboard() {
       {/* Preselection Modal */}
       <Modal opened={presModalOpen} onClose={() => setPresModalOpen(false)} title={`Pra-pilihan — ${formatDate(selectedPresDate)}`}>
         <Stack>
-          <Select data={SLOT_TYPES} value={selectedPresSlot} onChange={(v) => setSelectedPresSlot(v || '')} label="Jenis Slot" searchable />
-          <Select data={empOptions} value={selectedPresEmp} onChange={(v) => setSelectedPresEmp(v || '')} label="Kakitangan" searchable />
+          <Select data={SLOT_TYPES} value={selectedPresSlot} onChange={(_v: any) => setSelectedPresSlot(_v || '')} label="Jenis Slot" searchable />
+          <Select data={empOptions} value={selectedPresEmp} onChange={(_v: any) => setSelectedPresEmp(_v || '')} label="Kakitangan" searchable />
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setPresModalOpen(false)}>Batal</Button>
             <Button onClick={handleSavePres}>Simpan</Button>
           </Group>
+        </Stack>
+      </Modal>
+
+      {/* Progress Modal */}
+      <Modal opened={progressModalOpen} onClose={() => !solverRunning && setProgressModalOpen(false)} title="Penjanaan Jadual" centered closeOnClickOutside={!solverRunning} closeOnEscape={!solverRunning}>
+        <Stack>
+          {solverProgress && (<>
+            <Text fw={500}>{solverProgress.stageLabel}</Text>
+            <Text size="sm" c="dimmed">{solverProgress.message}</Text>
+            <Progress value={solverProgress.percent} animated striped size="xl" />
+            <Group justify="space-between">
+              <Text size="xs">{solverProgress.percent.toFixed(0)}%</Text>
+            </Group>
+          </>)}
+          {solverRunning && <Group justify="flex-end"><Button color="red" variant="outline" onClick={handleCancel}>Batal</Button></Group>}
+          {!solverRunning && solverResult && <Group justify="flex-end"><Button leftSection={<IconCheck size={16} />} onClick={() => setProgressModalOpen(false)}>Tutup</Button></Group>}
         </Stack>
       </Modal>
     </Stack>
