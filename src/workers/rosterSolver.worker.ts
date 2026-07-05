@@ -882,8 +882,14 @@ async function solve(data: SolverInputData) {
     }
   }
 
+  // POST-SOLUTION VALIDATION: Remove CHECK 5/6/7 violations
+  // Non-chronological strategies can produce solutions where these constraints
+  // are violated because they process slots out of order. This repair pass
+  // ensures the final output has zero violations.
+  const validatedAssignments = validateAndRepair(bestAssignments, holidayDates);
+
   // Append POST-AE markers
-  const finalAssignments = appendPostAEMarkers(bestAssignments, month, archive, activeEmployees);
+  const finalAssignments = appendPostAEMarkers(validatedAssignments, month, archive, activeEmployees);
   const elapsed = (Date.now() - startTime) / 1000;
 
   if (bestUnfilled > 0) warnings.push(`${bestUnfilled} slot tidak dapat diisi`);
@@ -891,6 +897,72 @@ async function solve(data: SolverInputData) {
   postProgress({ type: 'progress', percent: 100, stage: 'done', stageLabel: 'Selesai!', message: `${finalAssignments.length} tugasan, ${bestUnfilled} tidak diisi`, attempt: 0, totalAttempts: 0, bestUnfilled });
 
   postResult({ type: 'result', success: bestUnfilled === 0, warnings, unfilledCount: bestUnfilled, assignments: finalAssignments, elapsedSeconds: elapsed, solverMode, objective: bestObjective });
+}
+
+// ============================================
+// POST-SOLUTION VALIDATION & REPAIR
+// ============================================
+function validateAndRepair(assignments: SolverAssignment[], holidayDates: Set<string>): SolverAssignment[] {
+  // Sort chronologically to check constraints properly
+  const sorted = [...assignments].sort((a, b) => a.date.localeCompare(b.date) || a.slotType.localeCompare(b.slotType));
+
+  // Build lookup structures
+  const aeByDate = new Map<string, Set<string>>(); // date -> employeeIds who did AE
+  const assignByDateEmp = new Map<string, string>(); // "date_empId" -> slotType
+  const assignedToday = new Map<string, Set<string>>(); // date -> employeeIds assigned
+
+  for (const a of sorted) {
+    if (a.slotType === 'POST-AE' || a.slotType === 'PREV_MONTH_POST_AE') continue;
+    if (a.slotType === 'AE') {
+      if (!aeByDate.has(a.date)) aeByDate.set(a.date, new Set());
+      aeByDate.get(a.date)!.add(a.employeeId);
+    }
+    assignByDateEmp.set(`${a.date}_${a.employeeId}`, a.slotType);
+    if (!assignedToday.has(a.date)) assignedToday.set(a.date, new Set());
+    assignedToday.get(a.date)!.add(a.employeeId);
+  }
+
+  // Check each non-marker assignment for CHECK 5/6/7 violations
+  const violatingDatesEmps = new Set<string>(); // "date_empId_slotType"
+
+  for (const a of sorted) {
+    if (a.slotType === 'POST-AE' || a.slotType === 'PREV_MONTH_POST_AE') continue;
+    const empId = a.employeeId;
+    const prevDate = addDays(a.date, -1);
+
+    // CHECK 5: Employee did AE yesterday, cannot work today
+    if (aeByDate.get(prevDate)?.has(empId)) {
+      violatingDatesEmps.add(`${a.date}_${empId}_${a.slotType}`);
+    }
+
+    // CHECK 6: Employee worked yesterday (non-AE, Mon-Thu), cannot work today
+    // (unless today is a holiday or slot is AE)
+    if (a.slotType !== 'AE') {
+      const prevSlotType = assignByDateEmp.get(`${prevDate}_${empId}`);
+      if (prevSlotType && prevSlotType !== 'AE') {
+        const prevDow = getDOW(prevDate);
+        if (prevDow >= 1 && prevDow <= 4 && classifyDay(a.date, holidayDates) !== 'holiday') {
+          violatingDatesEmps.add(`${a.date}_${empId}_${a.slotType}`);
+        }
+      }
+    }
+
+    // CHECK 7: Same slot type on consecutive days
+    const prevSlotType7 = assignByDateEmp.get(`${prevDate}_${empId}`);
+    if (prevSlotType7 === a.slotType) {
+      violatingDatesEmps.add(`${a.date}_${empId}_${a.slotType}`);
+    }
+  }
+
+  // Remove violating assignments
+  if (violatingDatesEmps.size > 0) {
+    return sorted.filter(a => {
+      if (a.slotType === 'POST-AE' || a.slotType === 'PREV_MONTH_POST_AE') return true;
+      return !violatingDatesEmps.has(`${a.date}_${a.employeeId}_${a.slotType}`);
+    });
+  }
+
+  return sorted;
 }
 
 // ============================================
