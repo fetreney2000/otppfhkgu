@@ -481,6 +481,27 @@ function evaluateObjective(state: SolverState, employees: Employee[], allHoliday
   hardPenalty += Math.round(Math.max(0, roleStdMax - parseInt(config.TARGET_ROLE_STD_DEV || '7')) * parseInt(config.PENALTY_WEIGHT_HARD_ROLE_STD || '160'));
   softPenalty += Math.round(Math.max(0, roleStdMax - parseInt(config.TARGET_ROLE_STD_DEV || '7')) * parseInt(config.PENALTY_WEIGHT_SOFT_ROLE_STD_OVER || '900'));
 
+  // POST-VALIDATION: Penalize solutions that violate CHECK 5/6/7
+  // These constraints depend on chronological order and can't be fully enforced
+  // during non-chronological strategies, so we penalize violations heavily.
+  const VIOLETION_PENALTY = 500;
+  const aeByDateEmp = new Map<string, Set<string>>();
+  for (const a of state.assignments) {
+    if (a.slotType === 'AE') {
+      const key = a.date;
+      if (!aeByDateEmp.has(key)) aeByDateEmp.set(key, new Set());
+      aeByDateEmp.get(key)!.add(a.employeeId);
+    }
+  }
+  for (const a of state.assignments) {
+    if (a.slotType === 'POST-AE' || a.slotType === 'PREV_MONTH_POST_AE') continue;
+    // CHECK 5 violation: employee did AE yesterday, still assigned today
+    const prevDate = addDays(a.date, -1);
+    if (aeByDateEmp.get(prevDate)?.has(a.employeeId)) {
+      hardPenalty += VIOLETION_PENALTY;
+    }
+  }
+
   return { hardPenalty, exceedOneThirdCount, roleHoursDeviation: roleStdMax, roleStdMax, softPenalty, assignedHours, utilizationSpread: utilSpread, unfilledCount: state.unfilledCount };
 }
 
