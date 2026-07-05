@@ -216,7 +216,32 @@ function isEligible(emp: Employee, slot: SolverSlot, state: SolverState, holiday
   // CHECK 5: POST-AE NEXT-DAY BLOCK
   if (state.postAEBlock[empId]?.[dateStr]) return false;
 
-  // CHECK 6: MONTHLY MAX HOURS
+  // CHECK 6: CONSECUTIVE DAY RULE
+  // If employee worked yesterday (non-AE, Mon-Thu), they CANNOT work today
+  // (unless today is a holiday or slot is AE)
+  const lastDay = state.lastWorkedDay[empId];
+  if (lastDay) {
+    const yesterday = addDays(dateStr, -1);
+    if (lastDay === yesterday) {
+      if (!state.lastWorkedWasAE[empId]) {
+        const yDow = getDOW(yesterday);
+        if (yDow >= 1 && yDow <= 4 && classifyDay(dateStr, holidayDates) !== 'holiday' && slot.slotType !== 'AE') {
+          return false;
+        }
+      }
+    }
+  }
+
+  // CHECK 7: SAME SLOT TYPE CONSECUTIVE
+  // Employee cannot do the same slot type two days in a row
+  if (lastDay) {
+    const yesterday = addDays(dateStr, -1);
+    if (lastDay === yesterday && state.lastSlotType[empId] === slot.slotType) {
+      return false;
+    }
+  }
+
+  // CHECK 8: MONTHLY MAX HOURS
   if ((state.hoursUsed[empId] || 0) + slot.hours > (emp.maxHoursPerMonth || 40)) return false;
 
   // CHECK 9: WEEKLY WEEKDAY CAP
