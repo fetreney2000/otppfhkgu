@@ -27,3 +27,7 @@ Template Jadual OT.xlsx
 *.njsproj
 *.sln
 *.sw?
+
+# Analysis scripts
+template_analysis*.txt
+scripts/analyze_template*.py
