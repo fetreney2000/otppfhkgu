@@ -95,4 +95,16 @@ router.delete('/:id', requireRole('admin', 'superadmin'), async (req: AuthReques
   }
 });
 
+// POST /api/employees/reset-passwords — Reset all employee passwords to "password"
+router.post('/reset-passwords', requireRole('superadmin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const hashedPassword = sha256Hash('password');
+    const result = await Employee.updateMany({}, { $set: { password: hashedPassword } });
+    return res.json({ success: true, message: `${result.modifiedCount} kata laluan ditetapkan semula`, count: result.modifiedCount });
+  } catch (error) {
+    console.error('Reset passwords error:', error);
+    return res.status(500).json({ success: false, error: 'Ralat pelayan' });
+  }
+});
+
 export default router;
