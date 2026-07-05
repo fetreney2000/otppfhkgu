@@ -882,21 +882,107 @@ async function solve(data: SolverInputData) {
     }
   }
 
-  // POST-SOLUTION VALIDATION: Remove CHECK 5/6/7 violations
-  // Non-chronological strategies can produce solutions where these constraints
-  // are violated because they process slots out of order. This repair pass
-  // ensures the final output has zero violations.
-  const validatedAssignments = validateAndRepair(bestAssignments, holidayDates);
+  // ============================================
+  // POST-SOLUTION VALIDATION LOOP
+  // Never accept a solution with constraint violations.
+  // If violations found, re-run the solver and retry.
+  // Loop until clean or 5 minutes elapsed.
+  // ============================================
+  const VALIDATION_MAX_MS = 300000; // 5 minutes total
+  const MAX_VALIDATION_ROUNDS = 50;
+  let validatedAssignments = validateAndRepair(bestAssignments, holidayDates);
+  let validationViolations = bestAssignments.length - validatedAssignments.length;
+  let validationRound = 0;
+
+  while (validationViolations > 0 && Date.now() - startTime < VALIDATION_MAX_MS && validationRound < MAX_VALIDATION_ROUNDS) {
+    validationRound++;
+    postProgress({
+      type: 'progress', percent: Math.min(95, 50 + validationRound),
+      stage: 'validate', stageLabel: `Pusingan Validasi ${validationRound}`,
+      message: `Dijumpai ${validationViolations} pelanggaran peraturan. Menjana semula...`,
+      attempt: 0, totalAttempts: 0, bestUnfilled,
+      validationRound, validationViolations, validationMaxRounds: MAX_VALIDATION_ROUNDS,
+    });
+
+    // Re-run solver with front-loaded strategy (chronological = correct enforcement)
+    const retryRestarts = Math.min(100, Math.floor(parseInt(config.SOLVER_CONSTRUCTIVE_RESTARTS || '3000') / 6));
+    let retryBest: SolverAssignment[] = [...bestAssignments];
+    let retryObj = bestObjective;
+    let retryUnfilled = bestUnfilled;
+
+    for (let restart = 0; restart < retryRestarts && !cancelled; restart++) {
+      if (Date.now() - startTime > VALIDATION_MAX_MS) break;
+
+      const rs = deepCloneState(baseState);
+      let rUnfilled = 0;
+
+      // Front-loaded: chronological order (guarantees CHECK 5/6/7 enforcement)
+      const orderedSlots = [...slotSequence];
+
+      for (const slot of orderedSlots) {
+        if (cancelled) break;
+        let candidates = activeEmployees.filter(e => isEligible(e, slot, rs, holidayDates, allHolidays, config));
+        if (candidates.length === 0 && classifyDay(slot.date, holidayDates) === 'holiday' && slot.slotType !== 'AE') {
+          candidates = activeEmployees.filter(e => isEligibleRelaxed(e, slot, rs, holidayDates, allHolidays, config));
+        }
+        if (candidates.length === 0) { rUnfilled++; continue; }
+        const ranked = rankCandidates(candidates, slot, rs, allHolidays);
+        const pick = restart === 0 ? ranked[0] : ranked[Math.floor(Math.random() * Math.min(3, ranked.length))];
+        applyAssignment(slot, pick, rs, holidayDates, allHolidays);
+      }
+
+      const rObj = evaluateObjective(rs, activeEmployees, allHolidays, config, holidayDates);
+      rObj.unfilledCount = rUnfilled;
+      if (rUnfilled < retryUnfilled || (rUnfilled === retryUnfilled && !objectiveWorse(rObj, retryObj))) {
+        retryUnfilled = rUnfilled;
+        retryBest = [...rs.assignments];
+        retryObj = rObj;
+      }
+      if (retryUnfilled === 0) break;
+    }
+
+    // Validate the retry solution
+    const retryValidated = validateAndRepair(retryBest, holidayDates);
+    const retryViolations = retryBest.length - retryValidated.length;
+
+    if (retryViolations < validationViolations || (retryViolations === validationViolations && retryUnfilled < bestUnfilled)) {
+      // Retry found a better (or equal-violation but fewer-unfilled) solution
+      bestAssignments = retryBest;
+      bestObjective = retryObj;
+      bestUnfilled = retryUnfilled;
+      validatedAssignments = retryValidated;
+      validationViolations = retryViolations;
+      solverMode = `Front-loaded retry #${validationRound}`;
+    } else {
+      // Retry didn't improve — break to avoid infinite loop
+      break;
+    }
+
+    postProgress({
+      type: 'progress', percent: Math.min(95, 50 + validationRound),
+      stage: 'validate', stageLabel: `Pusingan Validasi ${validationRound}`,
+      message: validationViolations === 0
+        ? 'Semua peraturan dipenuhi!'
+        : `${validationViolations} pelanggaran tinggal. ${MAX_VALIDATION_ROUNDS - validationRound} pusingan baki`,
+      attempt: 0, totalAttempts: 0, bestUnfilled,
+      validationRound, validationViolations, validationMaxRounds: MAX_VALIDATION_ROUNDS,
+    });
+  }
 
   // Append POST-AE markers
   const finalAssignments = appendPostAEMarkers(validatedAssignments, month, archive, activeEmployees);
   const elapsed = (Date.now() - startTime) / 1000;
 
   if (bestUnfilled > 0) warnings.push(`${bestUnfilled} slot tidak dapat diisi`);
+  if (validationViolations > 0) warnings.push(`${validationViolations} pelanggaran peraturan selepas ${validationRound} pusingan validasi`);
 
-  postProgress({ type: 'progress', percent: 100, stage: 'done', stageLabel: 'Selesai!', message: `${finalAssignments.length} tugasan, ${bestUnfilled} tidak diisi`, attempt: 0, totalAttempts: 0, bestUnfilled });
+  const validationMsg = validationRound > 0
+    ? ` — Validasi: ${validationRound} pusingan, ${validationViolations} pelanggaran`
+    : '';
 
-  postResult({ type: 'result', success: bestUnfilled === 0, warnings, unfilledCount: bestUnfilled, assignments: finalAssignments, elapsedSeconds: elapsed, solverMode, objective: bestObjective });
+  postProgress({ type: 'progress', percent: 100, stage: 'done', stageLabel: 'Selesai!', message: `${finalAssignments.length} tugasan, ${bestUnfilled} tidak diisi${validationMsg}`, attempt: 0, totalAttempts: 0, bestUnfilled, validationRound, validationViolations, validationMaxRounds: MAX_VALIDATION_ROUNDS });
+
+  postResult({ type: 'result', success: bestUnfilled === 0 && validationViolations === 0, warnings, unfilledCount: bestUnfilled, assignments: finalAssignments, elapsedSeconds: elapsed, solverMode, objective: bestObjective });
 }
 
 // ============================================

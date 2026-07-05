@@ -263,6 +263,9 @@ export interface SolverProgress {
   attempt: number;
   totalAttempts: number;
   bestUnfilled: number;
+  validationRound?: number;
+  validationViolations?: number;
+  validationMaxRounds?: number;
 }
 
 export interface SolverResult {
@@ -395,7 +398,7 @@ export interface AnnualAllocationData {
 
 export const SOLVER_DEFAULTS: Record<string, string> = {
   SOLVER_MAX_STEPS: '800000',
-  SOLVER_MAX_RUNTIME_MS: '300000',
+  SOLVER_MAX_RUNTIME_MS: '120000',
   SOLVER_BEAM_WIDTH: '50',
   SOLVER_CONSTRUCTIVE_RESTARTS: '3000',
   SOLVER_PROGRESS_INTERVAL: '500',

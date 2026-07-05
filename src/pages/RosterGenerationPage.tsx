@@ -156,12 +156,29 @@ export function RosterGenerationPage() {
             <>
               <Text fw={500}>{solverProgress.stageLabel}</Text>
               <Text size="sm" c="dimmed">{solverProgress.message}</Text>
-              <Progress value={solverProgress.percent} animated striped size="xl" />
+              <Progress
+                value={solverProgress.percent}
+                animated
+                striped={solverProgress.stage !== 'validate'}
+                size="xl"
+                color={solverProgress.stage === 'validate' ? 'yellow' : solverProgress.stage === 'done' ? 'green' : 'blue'}
+              />
               <Group justify="space-between">
                 <Text size="xs">{solverProgress.percent.toFixed(0)}%</Text>
                 {solverProgress.bestUnfilled > 0 && <Text size="xs" c="orange">Slot terbaik belum diisi: {solverProgress.bestUnfilled}</Text>}
                 {solverProgress.attempt > 0 && <Text size="xs">Cubaan {solverProgress.attempt}/{solverProgress.totalAttempts}</Text>}
               </Group>
+              {solverProgress.validationRound !== undefined && solverProgress.validationRound > 0 && (
+                <Group gap="xs">
+                  <Badge color="yellow" variant="light" size="sm">Validasi Pusingan {solverProgress.validationRound}/{solverProgress.validationMaxRounds}</Badge>
+                  {solverProgress.validationViolations !== undefined && solverProgress.validationViolations > 0 && (
+                    <Badge color="red" variant="light" size="sm">{solverProgress.validationViolations} pelanggaran</Badge>
+                  )}
+                  {solverProgress.validationViolations !== undefined && solverProgress.validationViolations === 0 && (
+                    <Badge color="green" variant="light" size="sm">✓ Semua peraturan dipenuhi</Badge>
+                  )}
+                </Group>
+              )}
             </>
           )}
           {!solverProgress && (
