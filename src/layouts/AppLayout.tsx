@@ -89,18 +89,21 @@ export function AppLayout() {
               </Tooltip>
             )}
             <MonthPickerInput
-              value={currentMonth ? new Date(currentMonth + '-01') : null}
-              onChange={(val: any) => {
-                if (val && val instanceof Date) {
-                  const iso = val.toISOString().substring(0, 7);
-                  setCurrentMonth(iso);
+              value={currentMonth ? new Date(currentMonth + '-01T00:00:00.000Z') : null}
+              onChange={(val) => {
+                if (val) {
+                  const d = new Date(val);
+                  if (!isNaN(d.getTime())) {
+                    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    setCurrentMonth(iso);
+                  }
                 }
               }}
               placeholder="Pilih Bulan"
               size="xs"
-              valueFormat="MMM YYYY"
+              valueFormat="MMMM YYYY"
               clearable={false}
-              styles={{ input: { width: 160 } }}
+              styles={{ input: { width: 180 } }}
             />
             <Menu shadow="md" width={200}>
               <Menu.Target>
