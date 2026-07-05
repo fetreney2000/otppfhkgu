@@ -449,6 +449,89 @@ export async function generateRosterExcel(
   approvedDate.value = '';
   approvedDate.font = { name: 'Calibri', size: 11 };
 
+  // ============================================
+  // CONDITIONAL FORMATTING (exact from template)
+  // ============================================
+
+  // Range B6:W36 - All data cells
+  // Rule 1: Weekend (Sabtu/Ahad) → light gray
+  ws.addConditionalFormatting({
+    ref: `B6:W${5 + daysInMonth}`,
+    rules: [{
+      type: 'expression',
+      formulae: ['OR($C6="Sabtu",$C6="Ahad")'],
+      style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFECECEC' } } },
+      priority: 1,
+    }],
+  });
+  // Rule 2: Holiday (Cuti Umum) → light peach
+  ws.addConditionalFormatting({
+    ref: `B6:W${5 + daysInMonth}`,
+    rules: [{
+      type: 'expression',
+      formulae: ['$C6="Cuti Umum"'],
+      style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFBE4D5' } } },
+      priority: 2,
+    }],
+  });
+  // Rule 3: Duplicate names in row → red background
+  ws.addConditionalFormatting({
+    ref: `B6:W${5 + daysInMonth}`,
+    rules: [{
+      type: 'expression',
+      formulae: ['SUMPRODUCT((COUNTIF($B6:$W6,$B6:$W6)>1)*($B6:$W6<>""))>0'],
+      style: {
+        fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFF0000' } },
+        font: { color: { argb: 'FFFFFFFF' } },
+      },
+      priority: 3,
+    }],
+  });
+
+  // Range U6:U36 - AE column
+  // Rule 1: Holiday → light red
+  ws.addConditionalFormatting({
+    ref: `U6:U${5 + daysInMonth}`,
+    rules: [{
+      type: 'expression',
+      formulae: ['$C7="Cuti Umum"'],
+      style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFEA9999' } } },
+      priority: 4,
+    }],
+  });
+  // Rule 2: Weekend → light green
+  ws.addConditionalFormatting({
+    ref: `U6:U${5 + daysInMonth}`,
+    rules: [{
+      type: 'expression',
+      formulae: ['OR($C7="Sabtu",$C7="Ahad")'],
+      style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFB7E1CD' } } },
+      priority: 5,
+    }],
+  });
+
+  // Range W6:W36 - POST-AE column
+  // Rule 1: Holiday → light red
+  ws.addConditionalFormatting({
+    ref: `W6:W${5 + daysInMonth}`,
+    rules: [{
+      type: 'expression',
+      formulae: ['$C6="Cuti Umum"'],
+      style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFEA9999' } } },
+      priority: 6,
+    }],
+  });
+  // Rule 2: Weekend → light green
+  ws.addConditionalFormatting({
+    ref: `W6:W${5 + daysInMonth}`,
+    rules: [{
+      type: 'expression',
+      formulae: ['OR($C6="Sabtu",$C6="Ahad")'],
+      style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFB7E1CD' } } },
+      priority: 7,
+    }],
+  });
+
   // Page setup
   ws.pageSetup = {
     orientation: 'landscape',
@@ -459,17 +542,24 @@ export async function generateRosterExcel(
     margins: { left: 0.25, right: 0.25, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
   };
 
-  // Generate and download
+  // Generate buffer
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const suffix = label === 'Asal' ? '' : `_${label}`;
   const fileName = `Jadual_OT_${monthName}_${yearStr}${suffix}.xlsx`;
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+
+  // Try to open in new tab; fallback to download
+  const opened = window.open(url, '_blank');
+  if (!opened) {
+    // Popup blocked — fallback to download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+  // Revoke after a delay to allow the browser to start loading
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
