@@ -1,14 +1,18 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Card, Title, Group, Stack, Table, Badge, Text, SegmentedControl, Tabs, SimpleGrid, Paper, ScrollArea, Loader, Center, Button, UnstyledButton } from '@mantine/core';
-import { IconDownload, IconChevronUp, IconChevronDown, IconSelector } from '@tabler/icons-react';
+import { Card, Title, Group, Stack, Table, Badge, Text, SegmentedControl, Tabs, SimpleGrid, Paper, ScrollArea, Loader, Center, Button, UnstyledButton, Alert } from '@mantine/core';
+import { IconDownload, IconChevronUp, IconChevronDown, IconSelector, IconAlertCircle } from '@tabler/icons-react';
 import { useAppStore } from '../stores/appStore';
+import { useAuthStore } from '../stores/authStore';
 import { getDisplayMonth, formatDate, getDayName, formatCurrency } from '../utils/dates';
 import { generateRosterExcel } from '../utils/excelExport';
 import { RosterCalendar } from '../components/RosterCalendar';
+import { notifications } from '@mantine/notifications';
 import type { RosterSummaryItem, RosterPaymentItem } from '../types';
 
 export function ReportsPage() {
-  const { currentMonth, rosterReport, rosterSummary, rosterPayment, holidays, employees, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays, editRosterCell, editRosterCopyCell } = useAppStore();
+  const { currentMonth, rosterReport, rosterSummary, rosterPayment, holidays, employees, rosterCopyExists, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays, editRosterCell, editRosterCopyCell, checkRosterCopyExists } = useAppStore();
+  const { role } = useAuthStore();
+  const isAdmin = role === 'admin' || role === 'superadmin';
   const [source, setSource] = useState('original');
   const [activeTab, setActiveTab] = useState<string | null>('calendar');
   const [loading, setLoading] = useState(false);
@@ -59,15 +63,34 @@ export function ReportsPage() {
     return arr;
   }, [rosterPayment, paymentSort]);
 
+  // Check salinan availability for regular users
+  useEffect(() => {
+    if (!isAdmin) {
+      checkRosterCopyExists(currentMonth);
+    }
+  }, [currentMonth, isAdmin, checkRosterCopyExists]);
+
+  // Regular users can only view/edit salinan
+  const canViewOriginal = isAdmin;
+  const effectiveSource = isAdmin ? source : (rosterCopyExists ? 'copy' : 'original');
+  const canEdit = isAdmin ? source === 'copy' : rosterCopyExists;
+
+  // Force source for regular users
+  useEffect(() => {
+    if (!isAdmin && rosterCopyExists) {
+      setSource('copy');
+    }
+  }, [isAdmin, rosterCopyExists]);
+
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      loadRosterReport(currentMonth, source),
-      loadRosterSummary(currentMonth, source),
-      loadRosterPayment(currentMonth, source),
+      loadRosterReport(currentMonth, effectiveSource),
+      loadRosterSummary(currentMonth, effectiveSource),
+      loadRosterPayment(currentMonth, effectiveSource),
       loadHolidays(currentMonth),
     ]).finally(() => setLoading(false));
-  }, [currentMonth, source, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays]);
+  }, [currentMonth, effectiveSource, loadRosterReport, loadRosterSummary, loadRosterPayment, loadHolidays]);
 
   const roster = rosterReport?.roster;
 
@@ -108,7 +131,12 @@ export function ReportsPage() {
       <Group justify="space-between">
         <Title order={2}>Laporan — {getDisplayMonth(currentMonth)}</Title>
         <Group>
-          <SegmentedControl value={source} onChange={(v) => setSource(v as string)} data={[{ label: 'Asal', value: 'original' }, { label: 'Salinan', value: 'copy' }]} />
+          <SegmentedControl
+            value={isAdmin ? source : (rosterCopyExists ? 'copy' : 'original')}
+            onChange={(v) => setSource(v as string)}
+            disabled={!isAdmin}
+            data={[{ label: 'Asal', value: 'original' }, { label: 'Salinan', value: 'copy' }]}
+          />
           <Button
             leftSection={<IconDownload size={16} />}
             variant="light"
@@ -121,6 +149,18 @@ export function ReportsPage() {
           </Button>
         </Group>
       </Group>
+
+      {/* Regular user info messages */}
+      {!isAdmin && !rosterCopyExists && (
+        <Alert icon={<IconAlertCircle size={16} />} color="blue" title="Jadual Salinan Belum Dijana">
+          <Text size="sm">Admin belum menjana jadual salinan untuk bulan ini. Anda boleh melihat jadual asal sahaja tetapi tidak boleh mengubah suai.</Text>
+        </Alert>
+      )}
+      {!isAdmin && rosterCopyExists && (
+        <Alert icon={<IconAlertCircle size={16} />} color="green" title="Mod Sunting Salinan">
+          <Text size="sm">Anda sedang menyunting jadual salinan. Semua perubahan akan direkodkan.</Text>
+        </Alert>
+      )}
 
       <SimpleGrid cols={{ base: 2, md: 4 }}>
         <Paper shadow="xs" p="md" withBorder><Text size="xs" c="dimmed">Jumlah Jam</Text><Title order={3}>{totalHours}h</Title></Paper>
@@ -145,12 +185,21 @@ export function ReportsPage() {
               month={currentMonth}
               holidays={holidays}
               employees={employees}
-              canEdit={true}
-              onEdit={async (date, slotType, employeeName) => {
-                const editFn = source === 'copy' ? editRosterCopyCell : editRosterCell;
+              canEdit={canEdit}
+              onEdit={canEdit ? async (date, slotType, employeeName) => {
+                const editFn = effectiveSource === 'copy' ? editRosterCopyCell : editRosterCell;
                 await editFn(currentMonth, date, slotType, employeeName);
-                await loadRosterReport(currentMonth, source);
-              }}
+                await loadRosterReport(currentMonth, effectiveSource);
+                const dayLabel = getDayName(date);
+                const dateLabel = formatDate(date);
+                notifications.show({
+                  title: 'Perubahan Direkod',
+                  message: `${slotType} pada ${dateLabel} (${dayLabel}) ditukar kepada "${employeeName}" oleh ${role === 'employee' ? 'Anda' : 'Admin'}`,
+                  color: 'green',
+                  icon: <IconDownload size={16} />,
+                  autoClose: 4000,
+                });
+              } : undefined}
             />
           ) : (
             <Text c="dimmed" ta="center" py="xl">Tiada data jadual</Text>

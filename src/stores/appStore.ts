@@ -57,6 +57,7 @@ interface AppState {
   loadRosterSummary: (month: string, source: string) => Promise<void>;
   loadRosterPayment: (month: string, source: string) => Promise<void>;
   checkRosterExists: (month: string) => Promise<boolean>;
+  checkRosterCopyExists: (month: string) => Promise<boolean>;
   generateRosterData: (month: string) => Promise<SolverInputData | null>;
   saveRoster: (month: string, assignments: unknown[], objective: unknown, solverMode: string, elapsedSeconds: number, warnings: string[]) => Promise<void>;
   editRosterCell: (month: string, date: string, slot: string, employeeName: string) => Promise<void>;
@@ -205,6 +206,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   checkRosterExists: async (month) => {
     const res = await api.get<{ success: boolean; exists: boolean }>(`/roster/exists?month=${month}`);
     set({ rosterExists: res.exists });
+    return res.exists;
+  },
+  checkRosterCopyExists: async (month) => {
+    const res = await api.get<{ success: boolean; exists: boolean }>(`/roster/copy/exists?month=${month}`);
+    set({ rosterCopyExists: res.exists });
     return res.exists;
   },
   generateRosterData: async (month) => {
