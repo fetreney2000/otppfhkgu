@@ -540,11 +540,13 @@ function applyAssignment(slot: SolverSlot, emp: Employee, state: SolverState, ho
 // ============================================
 // POST-AE MARKERS
 // ============================================
-function appendPostAEMarkers(assignments: SolverAssignment[], month: string, archive: RosterArchive[]): SolverAssignment[] {
+function appendPostAEMarkers(assignments: SolverAssignment[], month: string, archive: RosterArchive[], employees: Employee[]): SolverAssignment[] {
   const days = getDaysInMonth(month);
   const result = [...assignments];
   const aeMap = new Map<string, SolverAssignment>();
   for (const a of assignments) { if (a.slotType === 'AE') aeMap.set(a.date, a); }
+  const empMap = new Map<string, Employee>();
+  for (const e of employees) { empMap.set(e.employeeId, e); }
 
   for (const day of days) {
     const prevDate = addDays(day, -1);
@@ -553,7 +555,8 @@ function appendPostAEMarkers(assignments: SolverAssignment[], month: string, arc
       const archiveRow = archive.find(a => a.date === prevDate && a.slotType === 'AE');
       if (archiveRow) {
         if (!result.some(r => r.date === day && r.slotType === 'POST-AE')) {
-          result.push({ date: day, day: getDayName(day), slotType: 'POST-AE', employeeId: archiveRow.employeeId, employeeName: archiveRow.employeeId, department: '', role: 'PPF', hours: 0 });
+          const emp = empMap.get(archiveRow.employeeId);
+          result.push({ date: day, day: getDayName(day), slotType: 'POST-AE', employeeId: archiveRow.employeeId, employeeName: emp?.name || archiveRow.employeeId, department: emp?.department || '', role: emp?.role || 'PPF', hours: 0 });
         }
       }
       continue;
@@ -862,7 +865,7 @@ async function solve(data: SolverInputData) {
   }
 
   // Append POST-AE markers
-  const finalAssignments = appendPostAEMarkers(bestAssignments, month, archive);
+  const finalAssignments = appendPostAEMarkers(bestAssignments, month, archive, activeEmployees);
   const elapsed = (Date.now() - startTime) / 1000;
 
   if (bestUnfilled > 0) warnings.push(`${bestUnfilled} slot tidak dapat diisi`);
