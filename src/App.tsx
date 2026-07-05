@@ -26,6 +26,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { HelpPage } from './pages/HelpPage';
 import { SolverMetricsPage } from './pages/SolverMetricsPage';
+import { AdminUnavailabilityPage } from './pages/AdminUnavailabilityPage';
 
 const theme = createTheme({
   primaryColor: 'blue',
@@ -152,6 +153,11 @@ function App() {
               <Route path="solver-metrics" element={
                 <ProtectedRoute roles={['superadmin']}>
                   <SolverMetricsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="admin-unavailability" element={
+                <ProtectedRoute roles={['admin', 'superadmin']}>
+                  <AdminUnavailabilityPage />
                 </ProtectedRoute>
               } />
             </Route>

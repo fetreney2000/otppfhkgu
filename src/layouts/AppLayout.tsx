@@ -9,7 +9,7 @@ import {
   IconCalendarStats, IconCalendarCog, IconFileText, IconClockCancel,
   IconCalendarTime, IconChartBar, IconSettings, IconUserCircle,
   IconHelp, IconMicroscope, IconLogout, IconWifi, IconWifiOff,
-  IconChevronDown,
+  IconChevronDown, IconEye,
 } from '@tabler/icons-react';
 
 const adminNavItems = [
@@ -19,6 +19,7 @@ const adminNavItems = [
   { label: 'Tugasan AE', path: '/ae-assignments', icon: IconCalendarDue, roles: ['admin', 'superadmin'] },
   { label: 'Pra-pilihan', path: '/preselections', icon: IconCalendarStats, roles: ['admin', 'superadmin'] },
   { label: 'Jana Jadual', path: '/roster-generation', icon: IconCalendarCog, roles: ['admin', 'superadmin'] },
+  { label: 'Ketidakhadiran', path: '/admin-unavailability', icon: IconEye, roles: ['admin', 'superadmin'] },
   { label: 'Tetapan', path: '/settings', icon: IconSettings, roles: ['admin', 'superadmin'] },
 ];
 
