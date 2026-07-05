@@ -588,6 +588,20 @@ async function solve(data: SolverInputData) {
   const unavailSet = new Set<string>();
   unavailability.forEach(u => unavailSet.add(`${u.date}_${u.employeeId}`));
 
+  // Pre-populate POST-AE block from archive data
+  // If employee did AE on day D (previous month), block them on day D+1
+  const initialPostAEBlock: Record<string, Record<string, boolean>> = {};
+  const firstDayOfMonth = `${month}-01`;
+  for (const a of archive) {
+    if (a.slotType === 'AE') {
+      const nextDay = addDays(a.date, 1);
+      if (nextDay >= firstDayOfMonth) {
+        if (!initialPostAEBlock[a.employeeId]) initialPostAEBlock[a.employeeId] = {};
+        initialPostAEBlock[a.employeeId][nextDay] = true;
+      }
+    }
+  }
+
   const preMap = new Map<string, Map<string, string>>();
   if (Array.isArray(preselections)) {
     preselections.forEach(p => {
@@ -619,7 +633,7 @@ async function solve(data: SolverInputData) {
     assignments: [], hoursUsed: {}, assignedToday: {}, lastWorkedDay: {}, lastWorkedWasAE: {}, lastSlotType: {},
     aeCountThisMonth: {}, aeCategories: {}, aeDays: {}, weekdaySlotWeekCounts: {},
     monthlyRuleStats: {}, annualRuleStats: {}, domain: {}, unfilledCount: 0, unfilledSlots: [],
-    postAEBlock: {}, unavailSet,
+    postAEBlock: initialPostAEBlock, unavailSet,
   };
 
   // Apply preselections (with null safety)
