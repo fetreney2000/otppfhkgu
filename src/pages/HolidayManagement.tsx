@@ -39,8 +39,8 @@ export function HolidayManagement() {
             value={date ? new Date(date) : null}
             onChange={(val) => {
               if (val) {
-                const d = val instanceof Date ? val : new Date(val);
-                setDate(d.toISOString().split('T')[0]);
+                const d = new Date(val);
+                if (!isNaN(d.getTime())) setDate(d.toISOString().split('T')[0]);
               } else {
                 setDate('');
               }
@@ -51,17 +51,17 @@ export function HolidayManagement() {
             size="sm"
           />
           <TextInput label="Nama Cuti" value={name} onChange={e => setName(e.currentTarget.value)} placeholder="cth. Hari Merdeka" />
-          <Button leftSection={<IconPlus size={16} />} onClick={handleAdd} style={{ marginTop: 24 }}>Tambah</Button>
+          <Button leftSection={<IconPlus size={16} />} onClick={handleAdd} size="sm">Tambah</Button>
         </Group>
         <Stack gap="xs">
           {holidays.map(h => (
-            <Group key={h.date} justify="space-between" p="md" style={{ background: '#f8f9fa', borderRadius: 8 }}>
-              <Group>
-                <Badge color="pink" variant="light">{formatDate(h.date)}</Badge>
-                <Text>{getDayName(h.date)}</Text>
-                <Text fw={500}>{h.name}</Text>
+            <Group key={h.date} justify="space-between" p="sm" style={{ background: '#f8f9fa', borderRadius: 'md' }}>
+              <Group gap="sm">
+                <Badge color="pink" variant="light" size="lg">{formatDate(h.date)}</Badge>
+                <Badge color="gray" variant="outline" size="sm">{getDayName(h.date)}</Badge>
+                <Text fw={500} size="sm">{h.name}</Text>
               </Group>
-              <ActionIcon color="red" variant="subtle" onClick={() => handleDelete(h.date)}><IconTrash size={16} /></ActionIcon>
+              <ActionIcon color="red" variant="subtle" onClick={() => handleDelete(h.date)} size="sm"><IconTrash size={14} /></ActionIcon>
             </Group>
           ))}
           {holidays.length === 0 && <Text c="dimmed" ta="center" py="xl">Tiada cuti umum bulan ini</Text>}
