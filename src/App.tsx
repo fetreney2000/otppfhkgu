@@ -14,10 +14,6 @@ import { AppLayout } from './layouts/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { EmployeeManagement } from './pages/EmployeeManagement';
-import { HolidayManagement } from './pages/HolidayManagement';
-import { AEAssignmentPage } from './pages/AEAssignmentPage';
-import { PreselectionPage } from './pages/PreselectionPage';
-import { RosterGenerationPage } from './pages/RosterGenerationPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { UnavailabilityPage } from './pages/UnavailabilityPage';
 import { MySchedulePage } from './pages/MySchedulePage';
@@ -93,26 +89,6 @@ function App() {
               <Route path="employees" element={
                 <ProtectedRoute roles={['admin', 'superadmin']}>
                   <EmployeeManagement />
-                </ProtectedRoute>
-              } />
-              <Route path="holidays" element={
-                <ProtectedRoute roles={['admin', 'superadmin']}>
-                  <HolidayManagement />
-                </ProtectedRoute>
-              } />
-              <Route path="ae-assignments" element={
-                <ProtectedRoute roles={['admin', 'superadmin']}>
-                  <AEAssignmentPage />
-                </ProtectedRoute>
-              } />
-              <Route path="preselections" element={
-                <ProtectedRoute roles={['admin', 'superadmin']}>
-                  <PreselectionPage />
-                </ProtectedRoute>
-              } />
-              <Route path="roster-generation" element={
-                <ProtectedRoute roles={['admin', 'superadmin']}>
-                  <RosterGenerationPage />
                 </ProtectedRoute>
               } />
               <Route path="reports" element={

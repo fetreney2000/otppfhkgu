@@ -15,10 +15,6 @@ import {
 const adminNavItems = [
   { label: 'Papan Pemuka', path: '/admin', icon: IconLayoutDashboard, roles: ['admin', 'superadmin'] },
   { label: 'Kakitangan', path: '/employees', icon: IconUsers, roles: ['admin', 'superadmin'] },
-  { label: 'Cuti Umum', path: '/holidays', icon: IconCalendarEvent, roles: ['admin', 'superadmin'] },
-  { label: 'Tugasan AE', path: '/ae-assignments', icon: IconCalendarDue, roles: ['admin', 'superadmin'] },
-  { label: 'Pra-pilihan', path: '/preselections', icon: IconCalendarStats, roles: ['admin', 'superadmin'] },
-  { label: 'Jana Jadual', path: '/roster-generation', icon: IconCalendarCog, roles: ['admin', 'superadmin'] },
   { label: 'Ketidakhadiran', path: '/admin-unavailability', icon: IconEye, roles: ['admin', 'superadmin'] },
   { label: 'Tetapan', path: '/settings', icon: IconSettings, roles: ['admin', 'superadmin'] },
 ];
