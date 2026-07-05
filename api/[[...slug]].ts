@@ -356,6 +356,14 @@ app.delete('/employees/:id', authenticate, requireRole('admin', 'superadmin'), a
   } catch { return res.status(500).json({ success: false, error: 'Ralat pelayan' }); }
 });
 
+app.post('/employees/reset-passwords', authenticate, requireRole('superadmin'), async (_req, res) => {
+  try {
+    const hashedPassword = sha256Hash('password');
+    const result = await Employee.updateMany({}, { $set: { password: hashedPassword } });
+    return res.json({ success: true, message: `${result.modifiedCount} kata laluan ditetapkan semula`, count: result.modifiedCount });
+  } catch (error) { console.error(error); return res.status(500).json({ success: false, error: 'Ralat pelayan' }); }
+});
+
 // ---- HOLIDAYS ----
 app.get('/holidays', authenticate, async (req, res) => {
   try {
